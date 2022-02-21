@@ -109,3 +109,16 @@ func addSetName(uri string, setName string) string {
 	}
 	return uri
 }
+
+// IsBalancerEnabled checks if balancer is enabled
+func IsBalancerEnabled(client *mongo.Client) (bool, error) {
+	var err error
+	var doc bson.M
+	if err := client.Database("admin").RunCommand(context.Background(), bson.D{{Key: "balancerStatus", Value: 1}}).Decode(&doc); err != nil {
+		return false, err
+	}
+	if doc != nil && doc["mode"] == "full" {
+		return true, err
+	}
+	return false, err
+}

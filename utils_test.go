@@ -22,3 +22,26 @@ func TestDoesFileExists(t *testing.T) {
 	exists = DoesFileExist("testdata/minimum.json")
 	assertEqual(t, true, exists)
 }
+
+func TestSkipNamespace(t *testing.T) {
+	included := map[string]*Include{}
+	included["db.*"] = &Include{Namespace: "db.*"}
+	included["*.coll"] = &Include{Namespace: "*.coll"}
+	included["dbname.collname"] = &Include{Namespace: "dbname.collname"}
+
+	assertEqual(t, false, SkipNamespace("dbname.collname", included))
+	assertEqual(t, false, SkipNamespace("db.collection", included))
+	assertEqual(t, false, SkipNamespace("database.coll", included))
+}
+
+func TestToFloat64(t *testing.T) {
+	assertEqual(t, float64(123.45), ToFloat64("123.45"))
+}
+
+func TestToInt32(t *testing.T) {
+	assertEqual(t, int32(123), ToInt32("123"))
+}
+
+func TestToInt64(t *testing.T) {
+	assertEqual(t, int64(123), ToInt64("123"))
+}

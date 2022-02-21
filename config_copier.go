@@ -19,6 +19,9 @@ func ConfigCopier() error {
 	if err != nil {
 		return err
 	}
+	if err = CollectionCreator(); err != nil {
+		return err
+	}
 	if err = IndexCopier(); err != nil {
 		return err
 	}

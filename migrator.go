@@ -5,7 +5,10 @@ package humingbird
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"sync"
+
+	"github.com/simagix/keyhole/mdb"
 
 	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
@@ -26,7 +29,9 @@ type Migrator struct {
 	Staging  string   `bson:"staging,omitempty"`
 	Yes      bool     `bson:"yes,omitempty"`
 
-	Workspace Workspace
+	sourceStats *mdb.ClusterStats
+	targetStats *mdb.ClusterStats
+	workspace   Workspace
 }
 
 var migratorInstance *Migrator
@@ -41,7 +46,19 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 	if err = ValidateMigratorConfig(m); err != nil {
 		return m, err
 	}
-	m.Workspace = Workspace{dbName: MetaDBName, dbURI: m.Target, staging: m.Staging}
+	// establish work space
+	m.workspace = Workspace{dbName: MetaDBName, dbURI: m.Target, staging: m.Staging}
+	// get clusters stats
+	m.sourceStats = mdb.NewClusterStats("")
+	client, err := GetMongoClient(m.Source)
+	if err = m.sourceStats.GetClusterStatsSummary(client); err != nil {
+		return migratorInstance, err
+	}
+	m.targetStats = mdb.NewClusterStats("")
+	client, err = GetMongoClient(m.Target)
+	if err = m.targetStats.GetClusterStatsSummary(client); err != nil {
+		return migratorInstance, err
+	}
 	migratorInstance = m
 	return migratorInstance, nil
 }
@@ -81,21 +98,25 @@ func ValidateMigratorConfig(migrator *Migrator) error {
 		return fmt.Errorf(`cannot set {"drop": true} when command is %v`, migrator.Command)
 	}
 	var logger = gox.GetLogger("")
+	var values []string
 	if migrator.Block <= 0 {
-		logger.Infof(`"block" not defined, use default %v`, MaxBlockSize)
+		values = append(values, fmt.Sprintf(`"block":%v`, MaxBlockSize))
 		migrator.Block = MaxBlockSize
 	}
 	if migrator.Port <= 0 {
-		logger.Infof(`"port" not defined, use default %v`, Port)
+		values = append(values, fmt.Sprintf(`"port":%v`, Port))
 		migrator.Port = Port
 	}
 	if migrator.Staging == "" {
-		logger.Infof(`"workspace" not defined, use default "%v"`, DefaultStaging)
+		values = append(values, fmt.Sprintf(`"workspace":"%v"`, DefaultStaging))
 		migrator.Staging = DefaultStaging
 	}
 	if migrator.Workers < MaxNumberWorkers {
-		logger.Infof(`"workers" not defined, use default %v`, MaxNumberWorkers)
+		values = append(values, fmt.Sprintf(`"workers":%v`, MaxNumberWorkers))
 		migrator.Workers = MaxNumberWorkers
+	}
+	if len(values) > 0 {
+		logger.Info("set default {", strings.Join(values, ","), "}")
 	}
 
 	return nil

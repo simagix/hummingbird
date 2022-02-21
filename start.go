@@ -8,6 +8,7 @@ import (
 
 	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/mdb"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Start starts a migration
@@ -37,6 +38,19 @@ func Start(filename string) error {
 		}
 	}
 
+	if isData { // if balancer is running, exits
+		if m.sourceStats.Cluster == mdb.Sharded {
+			if err = CheckIfBalancerDisabled(m.Source); err != nil {
+				return fmt.Errorf("source cluster error: %v", err)
+			}
+		}
+		if m.targetStats.Cluster == mdb.Sharded {
+			if err = CheckIfBalancerDisabled(m.Source); err != nil {
+				return fmt.Errorf("target cluster error: %v", err)
+			}
+		}
+	}
+
 	if m.IsDrop {
 		if err = DropCollections(); err != nil {
 			return err
@@ -54,7 +68,7 @@ func Start(filename string) error {
 	}
 
 	if isData {
-		GetMigratorInstance().Workspace.Reset() // reset meta data and clean up staging
+		GetMigratorInstance().workspace.Reset() // reset meta data and clean up staging
 		replicas, err := GetAllMongoProcURI(GetMigratorInstance().Source)
 		fmt.Println(replicas)
 		if err = DataCopier(); err != nil {
@@ -110,6 +124,22 @@ func DropCollections() error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// CheckIfBalancerDisabled returns balancer state
+func CheckIfBalancerDisabled(uri string) error {
+	var err error
+	var client *mongo.Client
+	var enabled bool
+	if client, err = GetMongoClient(uri); err != nil {
+		return err
+	}
+	if enabled, err = IsBalancerEnabled(client); err != nil {
+		return err
+	} else if enabled {
+		return fmt.Errorf("balancer is enabled")
 	}
 	return nil
 }
