@@ -3,11 +3,11 @@
 die() { echo "$*" 1>&2 ; exit 1; }
 VERSION="v$(cat version)"
 REPO=$(basename "$(dirname "$(pwd)")")/$(basename "$(pwd)")
-TAG="simagix/neutrino"
+TAG="neutrino"
 LDFLAGS="-X main.version=$VERSION -X main.repo=$TAG"
 [[ "$(which go)" = "" ]] && die "go command not found"
 [[ "$GOPATH" = "" ]] && die "GOPATH not set"
-[[ "${GOPATH}/src/github.com/$REPO" != "$(pwd)" ]] && die "building humingbird should be under ${GOPATH}/src/github.com/$REPO"
+[[ "${GOPATH}/src/github.com/$REPO" != "$(pwd)" ]] && die "building neutrino should be under ${GOPATH}/src/github.com/$REPO"
 mkdir -p dist
 go mod vendor
 if [[ "$1" == "docker" ]]; then

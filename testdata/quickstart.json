@@ -4,6 +4,7 @@
   "source": "mongodb://user:password@localhost/?compressors=zstd&readPreference=secondaryPreferred",
   "target": "mongodb://admin:secret@localhost:30309/?compressors=zstd&replicaSet=replset",
   "includes": [
+    { "namespace": "Documents.*"},
     { "namespace": "keyhole.numbers"},
     { "namespace": "keyhole.favorites", "filter": {"ts": {"$gt":{"$date": "2021-09-23T10:20:00.266Z"}}} },
     { "namespace": "keyhole.vehicles", "filter": { "color": { "$in": [ "Black", "White" ] }}, "to": "monochrome.cars" }

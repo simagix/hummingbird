@@ -4,7 +4,10 @@ package humingbird
 
 import (
 	"context"
+	"fmt"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 
 	"github.com/simagix/keyhole/mdb"
 	"go.mongodb.org/mongo-driver/bson"
@@ -57,4 +60,52 @@ func GetQualifiedNamespaces(client *mongo.Client, includeCollection bool, metaDB
 		}
 	}
 	return namespaces, nil
+}
+
+// GetAllMongoProcURI return all connections strings from an URI
+func GetAllMongoProcURI(uri string) ([]string, error) {
+	var replicas []string
+	cs, err := connstring.Parse(uri)
+	if err != nil {
+		return replicas, err
+	}
+	client, err := GetMongoClient(uri)
+	if err != nil {
+		return replicas, err
+	}
+	stats := mdb.NewClusterStats("")
+	if err = stats.GetClusterStatsSummary(client); err != nil {
+		return replicas, err
+	}
+	if stats.Cluster == mdb.Sharded {
+		var shards []mdb.Shard
+		if shards, err = mdb.GetShards(client); err != nil {
+			return replicas, err
+		} else if replicas, err = mdb.GetAllShardURIs(shards, cs); err != nil {
+			return replicas, err
+		}
+	} else if stats.Cluster == mdb.Replica {
+		if strings.HasPrefix(cs.String(), "mongodb+srv://") && strings.Contains(cs.String(), ".mongodb.net") {
+			replicas = append(replicas, cs.String())
+		} else {
+			setName := stats.ServerStatus.Repl.SetName
+			replicas = append(replicas, addSetName(cs.String(), setName))
+		}
+	} else {
+		replicas = append(replicas, cs.String())
+	}
+
+	return replicas, err
+}
+
+func addSetName(uri string, setName string) string {
+	if !strings.Contains(uri, "replicaSet=") && setName != "" {
+		if strings.Contains(uri, "?") {
+			uri += fmt.Sprintf("&replicaSet=%v", setName)
+		} else {
+			uri += fmt.Sprintf("?replicaSet=%v", setName)
+		}
+		return uri
+	}
+	return uri
 }

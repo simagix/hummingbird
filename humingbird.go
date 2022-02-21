@@ -5,14 +5,13 @@ package humingbird
 import (
 	"flag"
 	"fmt"
-	"log"
 
 	"github.com/simagix/gox"
 )
 
 const (
-	// DefaultWorkspace defines default work space
-	DefaultWorkspace = "./workspace"
+	// DefaultStaging defines default work space
+	DefaultStaging = "./workspace"
 	// MaxBlockSize defines max batch size of a task
 	MaxBlockSize = 10000
 	// MaxNumberWorkers defines max number of concurrent workers
@@ -37,7 +36,7 @@ const (
 )
 
 // Run routes to a command
-func Run(version string) {
+func Run(version string) error {
 	resume := flag.String("resume", "", "resume a migration from a configuration file")
 	start := flag.String("start", "", "start a migration from a configuration file")
 	ver := flag.Bool("version", false, "print version info")
@@ -48,22 +47,14 @@ func Run(version string) {
 
 	if *ver {
 		fmt.Println(version)
-		return
+		return nil
 	}
 	logger := gox.GetLogger(version)
 	if *start != "" {
-		err := Start(*start)
-		if err != nil {
-			log.Fatal(err)
-		}
-		return
+		return Start(*start)
 	} else if *resume != "" {
-		err := Resume(*resume)
-		if err != nil {
-			log.Fatal(err)
-		}
-		return
-	} else {
-		logger.Info(version)
+		return Resume(*resume)
 	}
+	logger.Info(version)
+	return nil
 }

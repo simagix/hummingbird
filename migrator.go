@@ -13,18 +13,20 @@ import (
 
 // Migrator stores migration configurations
 type Migrator struct {
-	Block     int      `bson:"block,omitempty"`
-	Command   string   `bson:"command"`
-	Includes  Includes `bson:"includes,omitempty"`
-	IsDrop    bool     `bson:"drop,omitempty"`
-	License   string   `bson:"license,omitempty"`
-	Port      int      `bson:"port,omitempty"`
-	Source    string   `bson:"source"`
-	Target    string   `bson:"target"`
-	Verbose   bool     `bson:"verbose,omitempty"`
-	Workers   int      `bson:"workers,omitempty"`
-	Workspace string   `bson:"workspace,omitempty"`
-	Yes       bool     `bson:"yes,omitempty"`
+	Block    int      `bson:"block,omitempty"`
+	Command  string   `bson:"command"`
+	Includes Includes `bson:"includes,omitempty"`
+	IsDrop   bool     `bson:"drop,omitempty"`
+	License  string   `bson:"license,omitempty"`
+	Port     int      `bson:"port,omitempty"`
+	Source   string   `bson:"source"`
+	Target   string   `bson:"target"`
+	Verbose  bool     `bson:"verbose,omitempty"`
+	Workers  int      `bson:"workers,omitempty"`
+	Staging  string   `bson:"staging,omitempty"`
+	Yes      bool     `bson:"yes,omitempty"`
+
+	Workspace Workspace
 }
 
 var migratorInstance *Migrator
@@ -39,8 +41,14 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 	if err = ValidateMigratorConfig(m); err != nil {
 		return m, err
 	}
+	m.Workspace = Workspace{dbName: MetaDBName, dbURI: m.Target, staging: m.Staging}
 	migratorInstance = m
 	return migratorInstance, nil
+}
+
+// SetMigratorInstance changes the instance, for go tests
+func SetMigratorInstance(migrator *Migrator) {
+	migratorInstance = migrator
 }
 
 // GetMigratorInstance returns Migratro migratorInstance
@@ -70,7 +78,7 @@ func ValidateMigratorConfig(migrator *Migrator) error {
 	} else if migrator.Workers > MaxNumberWorkers {
 		return fmt.Errorf("number of workers must be between 1 and %v", MaxNumberWorkers)
 	} else if migrator.IsDrop && (migrator.Command == CommandData || migrator.Command == CommandDataOnly) {
-		return fmt.Errorf(`cannot set {"drop": true} when command is %v`, &migrator.Command)
+		return fmt.Errorf(`cannot set {"drop": true} when command is %v`, migrator.Command)
 	}
 	var logger = gox.GetLogger("")
 	if migrator.Block <= 0 {
@@ -81,9 +89,9 @@ func ValidateMigratorConfig(migrator *Migrator) error {
 		logger.Infof(`"port" not defined, use default %v`, Port)
 		migrator.Port = Port
 	}
-	if migrator.Workspace == "" {
-		logger.Infof(`"workspace" not defined, use default "%v"`, DefaultWorkspace)
-		migrator.Workspace = DefaultWorkspace
+	if migrator.Staging == "" {
+		logger.Infof(`"workspace" not defined, use default "%v"`, DefaultStaging)
+		migrator.Staging = DefaultStaging
 	}
 	if migrator.Workers < MaxNumberWorkers {
 		logger.Infof(`"workers" not defined, use default %v`, MaxNumberWorkers)

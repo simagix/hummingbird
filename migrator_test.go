@@ -30,7 +30,7 @@ func TestValidateMigratorConfig(t *testing.T) {
 	assertEqual(t, nil, err)
 	assertEqual(t, "all", m.Command)
 	assertEqual(t, "Apache-2.0", m.License)
-	assertEqual(t, DefaultWorkspace, m.Workspace)
+	assertEqual(t, DefaultStaging, m.Staging)
 
 	m.IsDrop = true
 	m.Command = CommandData

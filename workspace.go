@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 
 	"github.com/simagix/gox"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const (
@@ -32,26 +31,31 @@ const (
 
 // Workspace stores meta database
 type Workspace struct {
-	db        *mongo.Database
-	workspace string
+	dbName  string
+	dbURI   string
+	staging string
 }
 
 // DropMetaDB drops meta database
 func (p *Workspace) DropMetaDB() error {
-	if p.db == nil {
-		return fmt.Errorf("db %v is nil", MetaDBName)
+	if p.dbURI == "" || p.dbName == "" {
+		return fmt.Errorf("db %v is nil", p.dbName)
 	}
-	return p.db.Drop(context.Background())
+	client, err := GetMongoClient(p.dbURI)
+	if err != nil {
+		return err
+	}
+	return client.Database(p.dbName).Drop(context.Background())
 }
 
 // CleanUpWorkspace removes all cached file
 func (p *Workspace) CleanUpWorkspace() error {
-	if p.workspace == "" {
-		return fmt.Errorf("workspace is not defined")
+	if p.staging == "" {
+		return fmt.Errorf("workspace staging is not defined")
 	}
 	var err error
 	var filenames []string
-	filepath.WalkDir(p.workspace, func(s string, d fs.DirEntry, err error) error {
+	filepath.WalkDir(p.staging, func(s string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

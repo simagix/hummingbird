@@ -13,7 +13,7 @@ import (
 func IndexCopier() error {
 	now := time.Now()
 	logger := gox.GetLogger("")
-	logger.Remark("copying indexes")
+	logger.Remark("copy indexes")
 	var err error
 	inst := GetMigratorInstance()
 	sourceClient, err := GetMongoClient(inst.Source)

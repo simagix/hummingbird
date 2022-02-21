@@ -1,0 +1,11 @@
+{
+  "command": "config",
+  "drop": true,
+  "source": "mongodb://user:password@localhost/?compressors=zstd&readPreference=secondaryPreferred",
+  "target": "mongodb://admin:secret@localhost:30309/?compressors=zstd&replicaSet=replset",
+  "includes": [
+    { "namespace": "testdb.neutrino"}
+  ],
+  "yes": true,
+  "license": "Apache-2.0"
+}
