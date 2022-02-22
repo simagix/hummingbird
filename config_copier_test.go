@@ -41,7 +41,6 @@ func TestConfigCopier(t *testing.T) {
 	assertEqual(t, nil, err)
 
 	m.Includes = nil
-	SetMigratorInstance(m)
 	err = ConfigCopier()
 	assertNotEqual(t, nil, err)
 

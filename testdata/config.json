@@ -2,7 +2,7 @@
   "command": "config",
   "drop": true,
   "source": "mongodb://user:password@localhost/?compressors=zstd&readPreference=secondaryPreferred",
-  "target": "mongodb://admin:secret@localhost:30309/?compressors=zstd&replicaSet=replset",
+  "target": "mongodb://user:password@localhost:37017/?compressors=zstd&readPreference=secondaryPreferred",
   "includes": [
     { "namespace": "testdb.neutrino"}
   ],

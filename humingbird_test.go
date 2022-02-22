@@ -5,9 +5,10 @@ package humingbird
 import "testing"
 
 const (
-	TestNS        = "testdb.neutrino"
-	TestSourceURI = "mongodb://user:password@localhost/?compressors=zstd&readPreference=secondaryPreferred"
-	TestTargetURI = "mongodb://admin:secret@localhost:30309/?compressors=zstd&replicaSet=replset"
+	TestNS         = "testdb.neutrino"
+	TestSourceURI  = "mongodb://user:password@localhost/?compressors=zstd&readPreference=secondaryPreferred"
+	TestTargetURI  = "mongodb://user:password@localhost:37017/?compressors=zstd&readPreference=secondaryPreferred"
+	TestReplicaURI = "mongodb://admin:secret@localhost:30309/?compressors=zstd&replicaSet=replset"
 )
 
 func assertEqual(t *testing.T, a interface{}, b interface{}) {

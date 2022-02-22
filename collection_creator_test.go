@@ -41,10 +41,6 @@ func TestCollectionCreator(t *testing.T) {
 	assertEqual(t, nil, err)
 
 	m.Includes = nil
-	SetMigratorInstance(m)
-	err = CollectionCreator()
-	assertNotEqual(t, nil, err)
-
 	DropCollections()
 	err = CollectionCreator()
 	assertEqual(t, nil, err)

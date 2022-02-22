@@ -63,11 +63,6 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 	return migratorInstance, nil
 }
 
-// SetMigratorInstance changes the instance, for go tests
-func SetMigratorInstance(migrator *Migrator) {
-	migratorInstance = migrator
-}
-
 // GetMigratorInstance returns Migratro migratorInstance
 func GetMigratorInstance() *Migrator {
 	return migratorInstance

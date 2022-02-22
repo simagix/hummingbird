@@ -14,7 +14,7 @@ func TestDropMetaDB(t *testing.T) {
 	err := meta.DropMetaDB()
 	assertNotEqual(t, nil, err)
 
-	meta = &Workspace{dbName: MetaDBName, dbURI: TestTargetURI}
+	meta = &Workspace{dbName: MetaDBName, dbURI: TestReplicaURI}
 	err = meta.DropMetaDB()
 	assertEqual(t, nil, err)
 }
@@ -57,11 +57,11 @@ func TestReset(t *testing.T) {
 	err := meta.Reset()
 	assertNotEqual(t, nil, err)
 
-	meta = &Workspace{dbName: MetaDBName, dbURI: TestTargetURI}
+	meta = &Workspace{dbName: MetaDBName, dbURI: TestReplicaURI}
 	err = meta.Reset()
 	assertNotEqual(t, nil, err)
 
-	meta = &Workspace{dbName: MetaDBName, dbURI: TestTargetURI, staging: DefaultStaging}
+	meta = &Workspace{dbName: MetaDBName, dbURI: TestReplicaURI, staging: DefaultStaging}
 	err = meta.Reset()
 	assertEqual(t, nil, err)
 }

@@ -78,7 +78,7 @@ func CollectionCreator() error {
 				}
 			}
 			if err = targetClient.Database(dbName).CreateCollection(ctx, collName, collOpts); err != nil {
-				logger.Errorf(`%T (error code: %v) %v`, err, mdb.GetErrorCode(err), err)
+				logger.Errorf(`%v, error code: %v`, err, mdb.GetErrorCode(err))
 				return err
 			}
 			time.Sleep(10 * time.Millisecond) // wait for metadata sync

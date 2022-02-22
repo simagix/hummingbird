@@ -18,7 +18,6 @@ func TestStartAll(t *testing.T) {
 	m, err := NewMigratorInstance(filename)
 	assertEqual(t, nil, err)
 	m.Includes = nil
-	SetMigratorInstance(m)
 	err = DropCollections()
 	assertEqual(t, nil, err)
 
@@ -75,7 +74,6 @@ func TestDropCollections(t *testing.T) {
 	assertEqual(t, nil, err)
 
 	m.Includes = nil
-	SetMigratorInstance(m)
 	err = DropCollections()
 	assertEqual(t, nil, err)
 }

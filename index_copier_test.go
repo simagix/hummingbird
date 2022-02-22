@@ -33,7 +33,7 @@ func TestIndexCopier(t *testing.T) {
 	_, err = src.Indexes().CreateOne(ctx, imodel)
 	assertEqual(t, nil, err)
 
-	target, err := GetMongoClient(TestTargetURI)
+	target, err := GetMongoClient(TestReplicaURI)
 	assertEqual(t, nil, err)
 	tgt := target.Database(dbName).Collection(collName)
 	err = tgt.Drop(ctx)

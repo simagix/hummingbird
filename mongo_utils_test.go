@@ -7,7 +7,7 @@ import (
 )
 
 func TestGetQualifiedDBs(t *testing.T) {
-	client, err := GetMongoClient(TestTargetURI)
+	client, err := GetMongoClient(TestReplicaURI)
 	assertEqual(t, nil, err)
 	dbs, err := GetQualifiedDBs(client, MetaDBName)
 	assertEqual(t, nil, err)
@@ -15,7 +15,7 @@ func TestGetQualifiedDBs(t *testing.T) {
 }
 
 func TestGetQualifiedNamespaces(t *testing.T) {
-	client, err := GetMongoClient(TestTargetURI)
+	client, err := GetMongoClient(TestReplicaURI)
 	assertEqual(t, nil, err)
 	namespaces, err := GetQualifiedNamespaces(client, true, MetaDBName)
 	assertEqual(t, nil, err)
@@ -31,7 +31,7 @@ func TestGetAllMongoProcURI(t *testing.T) {
 	assertEqual(t, nil, err)
 	assertEqual(t, 2, len(replicas))
 
-	replicas, err = GetAllMongoProcURI(TestTargetURI)
+	replicas, err = GetAllMongoProcURI(TestReplicaURI)
 	assertEqual(t, nil, err)
 	assertEqual(t, 1, len(replicas))
 }
