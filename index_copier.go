@@ -12,7 +12,7 @@ import (
 // IndexCopier copies indexes from source to target
 func IndexCopier() error {
 	now := time.Now()
-	logger := gox.GetLogger("")
+	logger := gox.GetLogger("IndexCopier")
 	logger.Remark("copy indexes")
 	var err error
 	inst := GetMigratorInstance()

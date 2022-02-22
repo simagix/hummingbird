@@ -34,14 +34,14 @@ func TestCollectionCreator(t *testing.T) {
 	assertEqual(t, nil, err)
 
 	filename := "testdata/config.json"
-	m, err := NewMigratorInstance(filename)
+	inst, err := NewMigratorInstance(filename)
 	assertEqual(t, nil, err)
-	DropCollections()
+	inst.DropCollections()
 	err = CollectionCreator()
 	assertEqual(t, nil, err)
 
-	m.Includes = nil
-	DropCollections()
+	inst.ResetIncludesTo(nil)
+	inst.DropCollections()
 	err = CollectionCreator()
 	assertEqual(t, nil, err)
 }

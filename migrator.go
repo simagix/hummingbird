@@ -3,6 +3,7 @@
 package humingbird
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -29,6 +30,7 @@ type Migrator struct {
 	Staging  string   `bson:"staging,omitempty"`
 	Yes      bool     `bson:"yes,omitempty"`
 
+	included    map[string]*Include
 	sourceStats *mdb.ClusterStats
 	targetStats *mdb.ClusterStats
 	workspace   Workspace
@@ -39,33 +41,97 @@ var once sync.Once
 
 // NewMigratorInstance sets and returns a migrator instance
 func NewMigratorInstance(filename string) (*Migrator, error) {
-	m, err := ReadMigratorConfig(filename)
+	inst, err := ReadMigratorConfig(filename)
 	if err != nil {
-		return m, err
+		return inst, err
 	}
-	if err = ValidateMigratorConfig(m); err != nil {
-		return m, err
+	if err = ValidateMigratorConfig(inst); err != nil {
+		return inst, err
 	}
 	// establish work space
-	m.workspace = Workspace{dbName: MetaDBName, dbURI: m.Target, staging: m.Staging}
+	inst.workspace = Workspace{dbName: MetaDBName, dbURI: inst.Target, staging: inst.Staging}
 	// get clusters stats
-	m.sourceStats = mdb.NewClusterStats("")
-	client, err := GetMongoClient(m.Source)
-	if err = m.sourceStats.GetClusterStatsSummary(client); err != nil {
+	inst.sourceStats = mdb.NewClusterStats("")
+	client, err := GetMongoClient(inst.Source)
+	if err = inst.sourceStats.GetClusterStatsSummary(client); err != nil {
 		return migratorInstance, err
 	}
-	m.targetStats = mdb.NewClusterStats("")
-	client, err = GetMongoClient(m.Target)
-	if err = m.targetStats.GetClusterStatsSummary(client); err != nil {
+	inst.targetStats = mdb.NewClusterStats("")
+	client, err = GetMongoClient(inst.Target)
+	if err = inst.targetStats.GetClusterStatsSummary(client); err != nil {
 		return migratorInstance, err
 	}
-	migratorInstance = m
+	inst.included = map[string]*Include{}
+	for _, include := range inst.Includes {
+		dbName, _ := mdb.SplitNamespace(include.Namespace)
+		if include.To != "" {
+			dbName, _ = mdb.SplitNamespace(include.To)
+		}
+		inst.included[dbName] = include
+	}
+	migratorInstance = inst
 	return migratorInstance, nil
 }
 
 // GetMigratorInstance returns Migratro migratorInstance
 func GetMigratorInstance() *Migrator {
 	return migratorInstance
+}
+
+// ResetIncludesTo is a convenient function for go tests
+func (inst *Migrator) ResetIncludesTo(includes Includes) {
+	migratorInstance.Includes = includes
+	migratorInstance.included = map[string]*Include{}
+	if includes != nil {
+		for _, include := range includes {
+			dbName, _ := mdb.SplitNamespace(include.Namespace)
+			if include.To != "" {
+				dbName, _ = mdb.SplitNamespace(include.To)
+			}
+			migratorInstance.included[dbName] = include
+		}
+	}
+}
+
+// DropCollections drops all qualified collections
+func (inst *Migrator) DropCollections() error {
+	logger := gox.GetLogger("DropCollections")
+	ctx := context.Background()
+	client, err := GetMongoClient(inst.Target)
+	if err != nil {
+		return err
+	}
+	if len(inst.Includes) == 0 { // drop all
+		dbNames, err := GetQualifiedDBs(client, MetaDBName)
+		if err != nil {
+			return err
+		}
+		for _, dbName := range dbNames {
+			logger.Info("drop database " + dbName)
+			if err = client.Database(dbName).Drop(ctx); err != nil {
+				return err
+			}
+		}
+	} else {
+		for _, include := range inst.included {
+			dbName, collName := mdb.SplitNamespace(include.Namespace)
+			if collName == "" || collName == "*" {
+				logger.Info("drop database " + dbName)
+				if err = client.Database(dbName).Drop(ctx); err != nil {
+					return err
+				}
+			} else {
+				if include.To != "" {
+					dbName, collName = mdb.SplitNamespace(include.To)
+				}
+				logger.Infof("drop namespace %v.%v", dbName, collName)
+				if err = client.Database(dbName).Collection(collName).Drop(ctx); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // ReadMigratorConfig validates configuration from a file
@@ -92,7 +158,7 @@ func ValidateMigratorConfig(migrator *Migrator) error {
 	} else if migrator.IsDrop && (migrator.Command == CommandData || migrator.Command == CommandDataOnly) {
 		return fmt.Errorf(`cannot set {"drop": true} when command is %v`, migrator.Command)
 	}
-	var logger = gox.GetLogger("")
+	var logger = gox.GetLogger("ValidateMigratorConfig")
 	var values []string
 	if migrator.Block <= 0 {
 		values = append(values, fmt.Sprintf(`"block":%v`, MaxBlockSize))

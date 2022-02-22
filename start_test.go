@@ -15,10 +15,10 @@ func TestStartAll(t *testing.T) {
 	err := Start("none-exists")
 	assertNotEqual(t, nil, err)
 
-	m, err := NewMigratorInstance(filename)
+	inst, err := NewMigratorInstance(filename)
 	assertEqual(t, nil, err)
-	m.Includes = nil
-	err = DropCollections()
+	inst.ResetIncludesTo(nil)
+	err = inst.DropCollections()
 	assertEqual(t, nil, err)
 
 	err = Start(filename)
@@ -51,10 +51,10 @@ func TestStartDataOnly(t *testing.T) {
 	err = Start(filename)
 	assertEqual(t, nil, err)
 
-	m, err := NewMigratorInstance(filename)
+	inst, err := NewMigratorInstance(filename)
 	assertEqual(t, nil, err)
-	m.IsDrop = true
-	data, err := bson.MarshalExtJSON(m, false, false)
+	inst.IsDrop = true
+	data, err := bson.MarshalExtJSON(inst, false, false)
 	assertEqual(t, nil, err)
 	tmpfile := "temp-config.json"
 	err = ioutil.WriteFile(tmpfile, data, 0644)
@@ -67,13 +67,13 @@ func TestStartDataOnly(t *testing.T) {
 
 func TestDropCollections(t *testing.T) {
 	filename := "testdata/quickstart.json"
-	m, err := NewMigratorInstance(filename)
+	inst, err := NewMigratorInstance(filename)
 	assertEqual(t, nil, err)
 
-	err = DropCollections()
+	err = inst.DropCollections()
 	assertEqual(t, nil, err)
 
-	m.Includes = nil
-	err = DropCollections()
+	inst.ResetIncludesTo(nil)
+	err = inst.DropCollections()
 	assertEqual(t, nil, err)
 }

@@ -13,10 +13,26 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+// ConfigDB contains config.databases
+type ConfigDB struct {
+	ID          string `bson:"_id"`
+	Partitioned bool   `bson:"partitioned"`
+	Primary     string `bson:"primary"`
+}
+
+// ConfigCollection contains config.collections
+type ConfigCollection struct {
+	ID               string `bson:"_id"`
+	DefaultCollation bson.D `bson:"defaultCollation"`
+	Dropped          bool   `bson:"dropped"`
+	Key              bson.D `bson:"key"`
+	Unique           bool   `bson:"unique"`
+}
+
 // ConfigCopier copies configuration including indexes from source to target
 func ConfigCopier() error {
 	now := time.Now()
-	logger := gox.GetLogger("")
+	logger := gox.GetLogger("ConfigCopier")
 	inst := GetMigratorInstance()
 	logger.Remark("copy configurations")
 	err := DoesDataExist()
@@ -53,6 +69,23 @@ func ConfigCopier() error {
 	if addShardTags(targetClient, sourceShards, targetShards); err != nil {
 		return err
 	}
+	primaries := bson.M{}
+	if len(targetShards) >= len(sourceShards) {
+		for i := 0; i < len(sourceShards); i++ {
+			primaries[sourceShards[i].ID] = targetShards[i].ID
+		}
+	} else {
+		for i := 0; i < len(targetShards); i++ {
+			primaries[sourceShards[i].ID] = targetShards[i].ID
+		}
+		idx := len(targetShards) - 1
+		for i, j := idx, 0; i < len(sourceShards); i, j = i+1, j+1 {
+			primaries[sourceShards[i].ID] = targetShards[j%len(targetShards)].ID
+		}
+	}
+	if addShardingConfigs(sourceClient, targetClient, primaries); err != nil {
+		return err
+	}
 
 	logger.Infof("configurations copied, took %v", time.Since(now))
 	return nil
@@ -70,16 +103,8 @@ func DoesDataExist() error {
 	if len(inst.Includes) == 0 && len(dbNames) > 0 {
 		dataExists = true
 	} else {
-		included := map[string]bool{}
-		for _, include := range inst.Includes {
-			dbName, _ := mdb.SplitNamespace(include.Namespace)
-			if include.To != "" {
-				dbName, _ = mdb.SplitNamespace(include.To)
-			}
-			included[dbName] = true
-		}
 		for _, dbName := range dbNames {
-			if included[dbName] {
+			if inst.included[dbName] != nil {
 				dataExists = true
 				break
 			}
@@ -108,7 +133,7 @@ func addShardTags(client *mongo.Client, sourceShards []mdb.Shard, targetShards [
 			source := sourceShards[i]
 			target := targetShards[i]
 			for _, tag := range source.Tags {
-				cmd := bson.D{{Key: "addShardToZone", Value: target.ID}, {Key: "zone", Value: tag}}
+				cmd := bson.D{{"addShardToZone", target.ID}, {"zone", tag}}
 				var doc bson.M
 				if err := client.Database("admin").RunCommand(context.Background(), cmd).Decode(&doc); err != nil {
 					return fmt.Errorf(`addShardToZone to shard %v failed: %v`, target.ID, err)
@@ -116,5 +141,92 @@ func addShardTags(client *mongo.Client, sourceShards []mdb.Shard, targetShards [
 			}
 		}
 	}
+	return nil
+}
+
+func addShardingConfigs(sourceClient *mongo.Client, targetClient *mongo.Client, primaries bson.M) error {
+	now := time.Now()
+	inst := GetMigratorInstance()
+	logger := gox.GetLogger("addShardingConfigs")
+	ctx := context.Background()
+	query := bson.D{{"dropped", bson.D{{"$ne", true}}}}
+	if len(inst.included) > 0 {
+		dbNames := []string{}
+		for ns := range inst.included {
+			dbName, _ := mdb.SplitNamespace(ns)
+			dbNames = append(dbNames, dbName)
+		}
+		query = bson.D{{"_id", bson.D{{"$in", dbNames}}}, {"dropped", bson.D{{"$ne", true}}}}
+	}
+	cursor, err := sourceClient.Database("config").Collection("databases").Find(ctx, query)
+	if err != nil {
+		return err
+	}
+	var doc bson.M
+	for cursor.Next(ctx) {
+		var cfg ConfigDB
+		if err = cursor.Decode(&cfg); err != nil {
+			return err
+		}
+		if cfg.ID == "admin" || cfg.ID == "local" || cfg.ID == "config" || cfg.ID == "test" {
+			continue
+		}
+		newPrimary := primaries[cfg.Primary]
+		if err = targetClient.Database("admin").RunCommand(ctx, bson.D{{"movePrimary", cfg.ID}, {"to", newPrimary}}).Decode(&doc); err != nil {
+			return fmt.Errorf(`movePrimary for database %v to shard %v failed`, cfg.ID, primaries[cfg.Primary])
+		}
+		for {
+			var doc bson.M
+			coll := targetClient.Database("config").Collection("databases")
+			if err = coll.FindOne(ctx, bson.D{{"_id", cfg.ID}}).Decode(&doc); err != nil {
+				return fmt.Errorf("move primary shard failed: %v", err)
+			}
+			if doc["primary"] == newPrimary {
+				break
+			}
+			time.Sleep(1 * time.Second)
+		}
+		if cfg.Partitioned {
+			logger.Infof(`enable sharding on database %v`, cfg.ID)
+			if err = targetClient.Database("admin").RunCommand(ctx, bson.D{{"enableSharding", cfg.ID}}).Decode(&doc); err != nil {
+				return fmt.Errorf(`enableSharding %v failed`, cfg.ID)
+			}
+		}
+	}
+	cursor.Close(ctx)
+	if err = targetClient.Database("admin").RunCommand(ctx, bson.D{{"flushRouterConfig", 1}}).Decode(&doc); err != nil {
+		return err
+	}
+
+	// shard collections config.collections
+	if cursor, err = sourceClient.Database("config").Collection("collections").Find(ctx, bson.D{{"_id", bson.M{"$ne": "config.system.sessions"}}, {"dropped", false}}); err != nil {
+		return fmt.Errorf(`find config.collections failed: %v`, err)
+	}
+	if cursor, err = sourceClient.Database("config").Collection("collections").Find(ctx, bson.D{{"_id", bson.M{"$ne": "config.system.sessions"}}}); err != nil {
+		return fmt.Errorf(`find config.collections failed: %v`, err)
+	}
+	for cursor.Next(ctx) {
+		var config ConfigCollection
+		cursor.Decode(&config)
+		if SkipNamespace(config.ID, inst.included) {
+			continue
+		}
+		ns := config.ID
+		include := inst.included[config.ID]
+		if include != nil && include.To != "" {
+			ns = include.To
+			db, _ := mdb.SplitNamespace(ns)
+			if err = targetClient.Database("admin").RunCommand(ctx, bson.D{{"enableSharding", db}}).Decode(&doc); err != nil {
+				return fmt.Errorf(`enableSharding %v failed`, db)
+			}
+		}
+		if err = targetClient.Database("admin").RunCommand(ctx,
+			bson.D{{"shardCollection", ns}, {"key", config.Key}, {"unique", config.Unique},
+				{"collation", config.DefaultCollation}}).Decode(&doc); err != nil {
+			return fmt.Errorf(`shardCollection %v failed: %v`, ns, err)
+		}
+	}
+	cursor.Close(ctx)
+	logger.Infof("sharding config copied, took %v", time.Since(now))
 	return nil
 }

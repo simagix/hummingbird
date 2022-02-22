@@ -6,46 +6,46 @@ import "testing"
 
 func TestNewMigratorInstance(t *testing.T) {
 	filename := "testdata/minimum.json"
-	m, err := NewMigratorInstance("dummy_filename")
+	inst, err := NewMigratorInstance("dummy_filename")
 	assertNotEqual(t, nil, err)
 
-	m, err = NewMigratorInstance(filename)
+	inst, err = NewMigratorInstance(filename)
 	assertEqual(t, nil, err)
-	assertEqual(t, "all", m.Command)
+	assertEqual(t, "all", inst.Command)
 
-	m = GetMigratorInstance()
-	assertNotEqual(t, nil, m)
-	assertEqual(t, "all", m.Command)
+	inst = GetMigratorInstance()
+	assertNotEqual(t, nil, inst)
+	assertEqual(t, "all", inst.Command)
 }
 
 func TestValidateMigratorConfig(t *testing.T) {
 	filename := "testdata/minimum.json"
-	m, err := ReadMigratorConfig("dummy_filename")
+	inst, err := ReadMigratorConfig("dummy_filename")
 	assertNotEqual(t, nil, err)
 
-	m, err = ReadMigratorConfig(filename)
+	inst, err = ReadMigratorConfig(filename)
 	assertEqual(t, nil, err)
 
-	err = ValidateMigratorConfig(m)
+	err = ValidateMigratorConfig(inst)
 	assertEqual(t, nil, err)
-	assertEqual(t, "all", m.Command)
-	assertEqual(t, "Apache-2.0", m.License)
-	assertEqual(t, DefaultStaging, m.Staging)
+	assertEqual(t, "all", inst.Command)
+	assertEqual(t, "Apache-2.0", inst.License)
+	assertEqual(t, DefaultStaging, inst.Staging)
 
-	m.IsDrop = true
-	m.Command = CommandData
-	err = ValidateMigratorConfig(m)
+	inst.IsDrop = true
+	inst.Command = CommandData
+	err = ValidateMigratorConfig(inst)
 	assertNotEqual(t, nil, err)
 
-	m.Workers = MaxNumberWorkers + 1
-	err = ValidateMigratorConfig(m)
+	inst.Workers = MaxNumberWorkers + 1
+	err = ValidateMigratorConfig(inst)
 	assertNotEqual(t, nil, err)
 
-	m.Source = ""
-	err = ValidateMigratorConfig(m)
+	inst.Source = ""
+	err = ValidateMigratorConfig(inst)
 	assertNotEqual(t, nil, err)
 
-	m.Command = ""
-	err = ValidateMigratorConfig(m)
+	inst.Command = ""
+	err = ValidateMigratorConfig(inst)
 	assertNotEqual(t, nil, err)
 }

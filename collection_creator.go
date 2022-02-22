@@ -18,7 +18,7 @@ import (
 // CollectionCreator creates collections at target
 func CollectionCreator() error {
 	now := time.Now()
-	logger := gox.GetLogger("")
+	logger := gox.GetLogger("CollectionCreator")
 	logger.Remark("create collections")
 	var err error
 	ctx := context.Background()
