@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/simagix/humingbird"
+	"github.com/simagix/hummingbird"
 )
 
 var repo = "neutrino"
@@ -14,7 +14,7 @@ var version = "devel"
 
 func main() {
 	vstring := fmt.Sprintf(`simagix/%v %v`, repo, version)
-	if err := humingbird.Run(vstring); err != nil {
+	if err := hummingbird.Neutrino(vstring); err != nil {
 		log.Fatal(err)
 	}
 }

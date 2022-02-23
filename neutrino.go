@@ -1,6 +1,6 @@
 // Copyright Kuei-chun Chen, 2022-present. All rights reserved.
 
-package humingbird
+package hummingbird
 
 import (
 	"flag"
@@ -35,8 +35,8 @@ const (
 	CommandOplog = "oplog"
 )
 
-// Run routes to a command
-func Run(version string) error {
+// Neutrino routes to a command
+func Neutrino(version string) error {
 	resume := flag.String("resume", "", "resume a migration from a configuration file")
 	start := flag.String("start", "", "start a migration from a configuration file")
 	ver := flag.Bool("version", false, "print version info")

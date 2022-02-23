@@ -1,6 +1,6 @@
 // Copyright Kuei-chun Chen, 2022-present. All rights reserved.
 
-package humingbird
+package hummingbird
 
 import (
 	"fmt"

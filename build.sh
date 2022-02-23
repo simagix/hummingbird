@@ -16,6 +16,6 @@ if [[ "$1" == "docker" ]]; then
   id=$(docker create $DOCKERTAG)
   docker cp $id:/dist - | tar vx
 else
-  env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/neutrino-osx-x64 main/humingbird.go
-  env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/neutrino-linux-x64 main/humingbird.go
+  env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/neutrino-osx-x64 main/hummingbird.go
+  env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/neutrino-linux-x64 main/hummingbird.go
 fi

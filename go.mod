@@ -1,4 +1,4 @@
-module github.com/simagix/humingbird
+module github.com/simagix/hummingbird
 
 go 1.16
 

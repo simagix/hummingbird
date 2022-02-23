@@ -1,6 +1,6 @@
 // Copyright Kuei-chun Chen, 2022-present. All rights reserved.
 
-package humingbird
+package hummingbird
 
 import "testing"
 
@@ -24,6 +24,6 @@ func assertNotEqual(t *testing.T, a interface{}, b interface{}) {
 }
 
 func TestRun(t *testing.T) {
-	version := "humingbird v0.0.1"
+	version := "hummingbird v0.0.1"
 	Run(version)
 }
