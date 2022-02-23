@@ -13,6 +13,7 @@ import (
 
 	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Migrator stores migration configurations
@@ -61,6 +62,7 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 	if err = inst.targetStats.GetClusterStatsSummary(client); err != nil {
 		return migratorInstance, err
 	}
+	// create includes map
 	inst.included = map[string]*Include{}
 	for _, include := range inst.Includes {
 		ns := include.Namespace
@@ -134,6 +136,22 @@ func (inst *Migrator) DropCollections() error {
 	return nil
 }
 
+// CheckIfBalancersDisabled check if both source and target balancers are disabled
+func (inst *Migrator) CheckIfBalancersDisabled() error {
+	var err error
+	if inst.sourceStats.Cluster == mdb.Sharded {
+		if err = checkIfBalancerDisabled(inst.Source); err != nil {
+			return fmt.Errorf("source cluster error: %v", err)
+		}
+	}
+	if inst.targetStats.Cluster == mdb.Sharded {
+		if err = checkIfBalancerDisabled(inst.Target); err != nil {
+			return fmt.Errorf("target cluster error: %v", err)
+		}
+	}
+	return nil
+}
+
 // ReadMigratorConfig validates configuration from a file
 func ReadMigratorConfig(filename string) (*Migrator, error) {
 	var err error
@@ -180,5 +198,21 @@ func ValidateMigratorConfig(migrator *Migrator) error {
 		logger.Info("set default {", strings.Join(values, ","), "}")
 	}
 
+	return nil
+}
+
+// checkIfBalancerDisabled returns balancer state
+func checkIfBalancerDisabled(uri string) error {
+	var err error
+	var client *mongo.Client
+	var enabled bool
+	if client, err = GetMongoClient(uri); err != nil {
+		return err
+	}
+	if enabled, err = IsBalancerEnabled(client); err != nil {
+		return err
+	} else if enabled {
+		return fmt.Errorf("balancer is enabled")
+	}
 	return nil
 }

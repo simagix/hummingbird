@@ -23,7 +23,7 @@ func assertNotEqual(t *testing.T, a interface{}, b interface{}) {
 	}
 }
 
-func TestRun(t *testing.T) {
-	version := "hummingbird v0.0.1"
-	Run(version)
+func TestNeutrino(t *testing.T) {
+	version := "simagix/neutrino v0.0.1"
+	Neutrino(version)
 }

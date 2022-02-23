@@ -20,7 +20,7 @@ func GetQualifiedDBs(client *mongo.Client, metaDB string) ([]string, error) {
 	var ctx = context.Background()
 	var dbNames = []string{}
 	var dbs mdb.ListDatabases
-	if err = client.Database("admin").RunCommand(ctx, bson.D{{Key: "listDatabases", Value: 1}}).Decode(&dbs); err != nil {
+	if err = client.Database("admin").RunCommand(ctx, bson.D{{"listDatabases", 1}}).Decode(&dbs); err != nil {
 		return dbNames, err
 	}
 	for _, db := range dbs.Databases {
@@ -114,7 +114,7 @@ func addSetName(uri string, setName string) string {
 func IsBalancerEnabled(client *mongo.Client) (bool, error) {
 	var err error
 	var doc bson.M
-	if err := client.Database("admin").RunCommand(context.Background(), bson.D{{Key: "balancerStatus", Value: 1}}).Decode(&doc); err != nil {
+	if err := client.Database("admin").RunCommand(context.Background(), bson.D{{"balancerStatus", 1}}).Decode(&doc); err != nil {
 		return false, err
 	}
 	if doc != nil && doc["mode"] == "full" {

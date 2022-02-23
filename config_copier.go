@@ -109,20 +109,13 @@ func DoesDataExist() error {
 	if err != nil {
 		return err
 	}
-	var dataExists bool
 	if len(inst.Includes) == 0 && len(dbNames) > 0 {
-		dataExists = true
-	} else {
-		for _, dbName := range dbNames {
-			if inst.included[dbName] != nil {
-				dataExists = true
-				break
-			}
-		}
-	}
-
-	if dataExists {
 		return fmt.Errorf(`existing data detected, restart with {"drop": true} option`)
+	}
+	for _, dbName := range dbNames {
+		if inst.included[dbName] != nil {
+			return fmt.Errorf(`existing data detected, restart with {"drop": true} option`)
+		}
 	}
 	return nil
 }
