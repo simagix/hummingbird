@@ -4,7 +4,8 @@
   "source": "mongodb://user:password@localhost/?compressors=zstd&readPreference=secondaryPreferred",
   "target": "mongodb://user:password@localhost:37017/?compressors=zstd&readPreference=secondaryPreferred",
   "includes": [
-    { "namespace": "testdb.neutrino"}
+    { "namespace": "testdb.neutrino"},
+    { "namespace": "keyhole.*"}
   ],
   "yes": true,
   "license": "Apache-2.0"

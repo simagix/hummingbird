@@ -63,11 +63,11 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 	}
 	inst.included = map[string]*Include{}
 	for _, include := range inst.Includes {
-		dbName, _ := mdb.SplitNamespace(include.Namespace)
+		ns := include.Namespace
 		if include.To != "" {
-			dbName, _ = mdb.SplitNamespace(include.To)
+			ns = include.To
 		}
-		inst.included[dbName] = include
+		inst.included[ns] = include
 	}
 	migratorInstance = inst
 	return migratorInstance, nil

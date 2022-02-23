@@ -11,13 +11,15 @@ import (
 	"github.com/simagix/keyhole/mdb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// ConfigDB contains config.databases
-type ConfigDB struct {
-	ID          string `bson:"_id"`
-	Partitioned bool   `bson:"partitioned"`
-	Primary     string `bson:"primary"`
+// ConfigChunk contains config.chunks
+type ConfigChunk struct {
+	Namespace string `json:"ns" bson:"ns"`
+	Max       bson.D `json:"max" bson:"max"`
+	Min       bson.D `json:"min" bson:"min"`
+	Shard     string `json:"shard" bson:"shard"`
 }
 
 // ConfigCollection contains config.collections
@@ -27,6 +29,13 @@ type ConfigCollection struct {
 	Dropped          bool   `bson:"dropped"`
 	Key              bson.D `bson:"key"`
 	Unique           bool   `bson:"unique"`
+}
+
+// ConfigDB contains config.databases
+type ConfigDB struct {
+	ID          string `bson:"_id"`
+	Partitioned bool   `bson:"partitioned"`
+	Primary     string `bson:"primary"`
 }
 
 // ConfigCopier copies configuration including indexes from source to target
@@ -39,7 +48,6 @@ func ConfigCopier() error {
 	if err != nil {
 		return err
 	}
-
 	if err = CollectionCreator(); err != nil {
 		return err
 	}
@@ -66,7 +74,7 @@ func ConfigCopier() error {
 	if targetShards, err = mdb.GetShards(targetClient); err != nil {
 		return err
 	}
-	if addShardTags(targetClient, sourceShards, targetShards); err != nil {
+	if err = addShardTags(targetClient, sourceShards, targetShards); err != nil {
 		return err
 	}
 	primaries := bson.M{}
@@ -83,10 +91,12 @@ func ConfigCopier() error {
 			primaries[sourceShards[i].ID] = targetShards[j%len(targetShards)].ID
 		}
 	}
-	if addShardingConfigs(sourceClient, targetClient, primaries); err != nil {
+	if err = addShardingConfigs(sourceClient, targetClient, primaries); err != nil {
 		return err
 	}
-
+	if err = addChunks(sourceClient, targetClient, targetShards); err != nil {
+		return err
+	}
 	logger.Infof("configurations copied, took %v", time.Since(now))
 	return nil
 }
@@ -199,10 +209,8 @@ func addShardingConfigs(sourceClient *mongo.Client, targetClient *mongo.Client, 
 	}
 
 	// shard collections config.collections
-	if cursor, err = sourceClient.Database("config").Collection("collections").Find(ctx, bson.D{{"_id", bson.M{"$ne": "config.system.sessions"}}, {"dropped", false}}); err != nil {
-		return fmt.Errorf(`find config.collections failed: %v`, err)
-	}
-	if cursor, err = sourceClient.Database("config").Collection("collections").Find(ctx, bson.D{{"_id", bson.M{"$ne": "config.system.sessions"}}}); err != nil {
+	query = bson.D{{"_id", bson.M{"$ne": "config.system.sessions"}}, {"dropped", false}}
+	if cursor, err = sourceClient.Database("config").Collection("collections").Find(ctx, query); err != nil {
 		return fmt.Errorf(`find config.collections failed: %v`, err)
 	}
 	for cursor.Next(ctx) {
@@ -228,5 +236,105 @@ func addShardingConfigs(sourceClient *mongo.Client, targetClient *mongo.Client, 
 	}
 	cursor.Close(ctx)
 	logger.Infof("sharding config copied, took %v", time.Since(now))
+	return nil
+}
+
+func addChunks(sourceClient *mongo.Client, targetClient *mongo.Client, targetShards []mdb.Shard) error {
+	now := time.Now()
+	inst := GetMigratorInstance()
+	logger := gox.GetLogger("addShardingConfigs")
+	ctx := context.Background()
+	chunksNeeded := len(targetShards)
+	opts := options.Find()
+	opts.SetSort(bson.D{{"ns", 1}, {"min", 1}})
+	query := bson.D{{"ns", bson.M{"$ne": "config.system.sessions"}}, {"dropped", bson.M{"$ne": true}}}
+	cursor, err := sourceClient.Database("config").Collection("chunks").Find(ctx, query, opts)
+	if err != nil {
+		return fmt.Errorf(`find config.chunks failed: %v`, err)
+	}
+	chunks := map[string][]ConfigChunk{}
+	logger.Info("split chunks")
+	for cursor.Next(ctx) {
+		var cfg ConfigChunk
+		if err = cursor.Decode(&cfg); err != nil {
+			return fmt.Errorf("decode error: %v", err)
+		}
+		if SkipNamespace(cfg.Namespace, inst.included) {
+			continue
+		}
+		if chunks[cfg.Namespace] == nil {
+			chunks[cfg.Namespace] = []ConfigChunk{}
+		}
+		chunks[cfg.Namespace] = append(chunks[cfg.Namespace], cfg)
+	}
+	cursor.Close(ctx)
+	for ns, arr := range chunks {
+		if SkipNamespace(ns, inst.included) {
+			continue
+		}
+		qfilter := inst.included[ns]
+		if qfilter != nil && qfilter.To != "" {
+			ns = qfilter.To
+		}
+		segment := len(arr) / chunksNeeded
+		if len(arr) < chunksNeeded {
+			return fmt.Errorf(`%v does not have enough chunks info to automatically split chunks`, ns)
+		}
+		count := 1
+		for i, chunk := range arr {
+			var doc bson.M
+			if count == chunksNeeded {
+				break
+			} else if i == 0 || (len(arr) > chunksNeeded && i%segment != 0) {
+				continue
+			} else if err = targetClient.Database("admin").RunCommand(ctx, bson.D{{"split", ns}, {"middle", chunk.Min}}).Decode(&doc); err != nil {
+				return fmt.Errorf(`split failed: %v`, err)
+			}
+			count++
+		}
+	}
+	query = bson.D{{"ns", bson.M{"$ne": "config.system.sessions"}}}
+	if len(inst.included) > 0 {
+		namespaces := []string{}
+		for _, include := range inst.included {
+			namespaces = append(namespaces, include.To)
+		}
+		query = bson.D{{"ns", bson.D{{"$in", namespaces}}}}
+	}
+	if cursor, err = targetClient.Database("config").Collection("chunks").Find(ctx, query, opts); err != nil {
+		return fmt.Errorf(`find config.chunks failed: %v`, err)
+	}
+	chunksMap := map[string][]ConfigChunk{}
+	for cursor.Next(ctx) {
+		var cfg ConfigChunk
+		if err = cursor.Decode(&cfg); err != nil {
+			return err
+		}
+		ns := cfg.Namespace
+		if inst.included[ns] != nil && inst.included[ns].To != "" {
+			ns = inst.included[ns].To
+		}
+		if chunksMap[ns] == nil {
+			chunksMap[ns] = []ConfigChunk{}
+		}
+		chunksMap[ns] = append(chunksMap[ns], cfg)
+	}
+	cursor.Close(ctx)
+	if chunksNeeded > 1 {
+		for ns, arr := range chunksMap {
+			for i, chunk := range arr {
+				var doc bson.M
+				bounds := []bson.D{chunk.Min, chunk.Max}
+				if err = targetClient.Database("admin").RunCommand(ctx,
+					bson.D{{"moveChunk", ns}, {"bounds", bounds}, {"to", targetShards[i].ID}}).Decode(&doc); err != nil {
+					return fmt.Errorf(`moveChunk %v failed %v`, ns, err)
+				}
+				if i >= chunksNeeded {
+					break
+				}
+			}
+		}
+	}
+	logger.Infof("chunks added, took %v", time.Since(now))
 	return nil
 }
