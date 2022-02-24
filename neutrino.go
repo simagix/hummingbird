@@ -15,7 +15,7 @@ const (
 	// MaxBlockSize defines max batch size of a task
 	MaxBlockSize = 10000
 	// MaxNumberWorkers defines max number of concurrent workers
-	MaxNumberWorkers = 8
+	MaxNumberWorkers = 16
 	// Port defines port number to listen to
 	Port = 3629
 )

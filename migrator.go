@@ -32,6 +32,7 @@ type Migrator struct {
 	Yes      bool     `bson:"yes,omitempty"`
 
 	included    map[string]*Include
+	replicas    map[string]string
 	sourceStats *mdb.ClusterStats
 	targetStats *mdb.ClusterStats
 	workspace   Workspace
@@ -54,12 +55,12 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 	// get clusters stats
 	inst.sourceStats = mdb.NewClusterStats("")
 	client, err := GetMongoClient(inst.Source)
-	if err = inst.sourceStats.GetClusterStatsSummary(client); err != nil {
+	if err = inst.SourceStats().GetClusterStatsSummary(client); err != nil {
 		return migratorInstance, err
 	}
 	inst.targetStats = mdb.NewClusterStats("")
 	client, err = GetMongoClient(inst.Target)
-	if err = inst.targetStats.GetClusterStatsSummary(client); err != nil {
+	if err = inst.TargetStats().GetClusterStatsSummary(client); err != nil {
 		return migratorInstance, err
 	}
 	// create includes map
@@ -69,7 +70,20 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 		if include.To != "" {
 			ns = include.To
 		}
-		inst.included[ns] = include
+		inst.Included()[ns] = include
+	}
+	// set uri map
+	inst.replicas = map[string]string{}
+	list, err := GetAllReplicas(inst.Source)
+	if err != nil {
+		return nil, fmt.Errorf("GetAllReplicas failed: %v", err)
+	}
+	for _, replica := range list {
+		cs, err := mdb.ParseURI(replica)
+		if err != nil || cs.ReplicaSet == "" {
+			return nil, fmt.Errorf("ParseURI failed: %v", err)
+		}
+		inst.Replicas()[cs.ReplicaSet] = replica
 	}
 	migratorInstance = inst
 	return migratorInstance, nil
@@ -115,7 +129,7 @@ func (inst *Migrator) DropCollections() error {
 			}
 		}
 	} else {
-		for _, include := range inst.included {
+		for _, include := range inst.Included() {
 			dbName, collName := mdb.SplitNamespace(include.Namespace)
 			if collName == "" || collName == "*" {
 				logger.Info("drop database " + dbName)
@@ -139,17 +153,42 @@ func (inst *Migrator) DropCollections() error {
 // CheckIfBalancersDisabled check if both source and target balancers are disabled
 func (inst *Migrator) CheckIfBalancersDisabled() error {
 	var err error
-	if inst.sourceStats.Cluster == mdb.Sharded {
+	if inst.SourceStats().Cluster == mdb.Sharded {
 		if err = checkIfBalancerDisabled(inst.Source); err != nil {
 			return fmt.Errorf("source cluster error: %v", err)
 		}
 	}
-	if inst.targetStats.Cluster == mdb.Sharded {
+	if inst.TargetStats().Cluster == mdb.Sharded {
 		if err = checkIfBalancerDisabled(inst.Target); err != nil {
 			return fmt.Errorf("target cluster error: %v", err)
 		}
 	}
 	return nil
+}
+
+// Workspace returns Workspace
+func (inst *Migrator) Workspace() Workspace {
+	return inst.workspace
+}
+
+// Included returns includes
+func (inst *Migrator) Included() map[string]*Include {
+	return inst.included
+}
+
+// Replicas returns replica URI map
+func (inst *Migrator) Replicas() map[string]string {
+	return inst.replicas
+}
+
+// SourceStats returns stats
+func (inst *Migrator) SourceStats() *mdb.ClusterStats {
+	return inst.sourceStats
+}
+
+// TargetStats returns stats
+func (inst *Migrator) TargetStats() *mdb.ClusterStats {
+	return inst.targetStats
 }
 
 // ReadMigratorConfig validates configuration from a file

@@ -59,8 +59,6 @@ func Start(filename string) error {
 
 	if isData {
 		GetMigratorInstance().workspace.Reset() // reset meta data and clean up staging
-		replicas, err := GetAllMongoProcURI(GetMigratorInstance().Source)
-		fmt.Println(replicas)
 		if err = DataCopier(); err != nil {
 			return err
 		}

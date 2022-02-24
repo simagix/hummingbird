@@ -27,11 +27,11 @@ func TestGetQualifiedNamespaces(t *testing.T) {
 }
 
 func TestGetAllMongoProcURI(t *testing.T) {
-	replicas, err := GetAllMongoProcURI(TestSourceURI)
+	replicas, err := GetAllReplicas(TestSourceURI)
 	assertEqual(t, nil, err)
 	assertEqual(t, 2, len(replicas))
 
-	replicas, err = GetAllMongoProcURI(TestReplicaURI)
+	replicas, err = GetAllReplicas(TestReplicaURI)
 	assertEqual(t, nil, err)
 	assertEqual(t, 1, len(replicas))
 }

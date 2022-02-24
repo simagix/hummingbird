@@ -54,9 +54,9 @@ func ConfigCopier() error {
 	if err = IndexCopier(); err != nil {
 		return err
 	}
-	if inst.sourceStats.Cluster != mdb.Sharded || inst.targetStats.Cluster != mdb.Sharded {
+	if inst.SourceStats().Cluster != mdb.Sharded || inst.TargetStats().Cluster != mdb.Sharded {
 		logger.Remarkf("configurations copied, took %v, source is %v and target is %v",
-			time.Since(now), inst.sourceStats.Cluster, inst.targetStats.Cluster)
+			time.Since(now), inst.SourceStats().Cluster, inst.TargetStats().Cluster)
 		return nil
 	}
 
@@ -113,7 +113,7 @@ func DoesDataExist() error {
 		return fmt.Errorf(`existing data detected, restart with {"drop": true} option`)
 	}
 	for _, dbName := range dbNames {
-		if inst.included[dbName] != nil {
+		if inst.Included()[dbName] != nil {
 			return fmt.Errorf(`existing data detected, restart with {"drop": true} option`)
 		}
 	}
@@ -153,9 +153,9 @@ func addShardingConfigs(sourceClient *mongo.Client, targetClient *mongo.Client, 
 	logger := gox.GetLogger("addShardingConfigs")
 	ctx := context.Background()
 	query := bson.D{{"dropped", bson.D{{"$ne", true}}}}
-	if len(inst.included) > 0 {
+	if len(inst.Included()) > 0 {
 		dbNames := []string{}
-		for ns := range inst.included {
+		for ns := range inst.Included() {
 			dbName, _ := mdb.SplitNamespace(ns)
 			dbNames = append(dbNames, dbName)
 		}
@@ -209,11 +209,11 @@ func addShardingConfigs(sourceClient *mongo.Client, targetClient *mongo.Client, 
 	for cursor.Next(ctx) {
 		var config ConfigCollection
 		cursor.Decode(&config)
-		if SkipNamespace(config.ID, inst.included) {
+		if SkipNamespace(config.ID, inst.Included()) {
 			continue
 		}
 		ns := config.ID
-		include := inst.included[config.ID]
+		include := inst.Included()[config.ID]
 		if include != nil && include.To != "" {
 			ns = include.To
 			db, _ := mdb.SplitNamespace(ns)
@@ -252,7 +252,7 @@ func addChunks(sourceClient *mongo.Client, targetClient *mongo.Client, targetSha
 		if err = cursor.Decode(&cfg); err != nil {
 			return fmt.Errorf("decode error: %v", err)
 		}
-		if SkipNamespace(cfg.Namespace, inst.included) {
+		if SkipNamespace(cfg.Namespace, inst.Included()) {
 			continue
 		}
 		if chunks[cfg.Namespace] == nil {
@@ -262,10 +262,10 @@ func addChunks(sourceClient *mongo.Client, targetClient *mongo.Client, targetSha
 	}
 	cursor.Close(ctx)
 	for ns, arr := range chunks {
-		if SkipNamespace(ns, inst.included) {
+		if SkipNamespace(ns, inst.Included()) {
 			continue
 		}
-		qfilter := inst.included[ns]
+		qfilter := inst.Included()[ns]
 		if qfilter != nil && qfilter.To != "" {
 			ns = qfilter.To
 		}
@@ -287,9 +287,9 @@ func addChunks(sourceClient *mongo.Client, targetClient *mongo.Client, targetSha
 		}
 	}
 	query = bson.D{{"ns", bson.M{"$ne": "config.system.sessions"}}}
-	if len(inst.included) > 0 {
+	if len(inst.Included()) > 0 {
 		namespaces := []string{}
-		for _, include := range inst.included {
+		for _, include := range inst.Included() {
 			namespaces = append(namespaces, include.To)
 		}
 		query = bson.D{{"ns", bson.D{{"$in", namespaces}}}}
@@ -304,8 +304,8 @@ func addChunks(sourceClient *mongo.Client, targetClient *mongo.Client, targetSha
 			return err
 		}
 		ns := cfg.Namespace
-		if inst.included[ns] != nil && inst.included[ns].To != "" {
-			ns = inst.included[ns].To
+		if inst.Included()[ns] != nil && inst.Included()[ns].To != "" {
+			ns = inst.Included()[ns].To
 		}
 		if chunksMap[ns] == nil {
 			chunksMap[ns] = []ConfigChunk{}

@@ -62,8 +62,8 @@ func GetQualifiedNamespaces(client *mongo.Client, includeCollection bool, metaDB
 	return namespaces, nil
 }
 
-// GetAllMongoProcURI return all connections strings from an URI
-func GetAllMongoProcURI(uri string) ([]string, error) {
+// GetAllReplicas return all connections strings from an URI
+func GetAllReplicas(uri string) ([]string, error) {
 	var replicas []string
 	cs, err := connstring.Parse(uri)
 	if err != nil {
