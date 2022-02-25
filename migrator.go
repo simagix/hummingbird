@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 	"sync"
 
@@ -36,6 +37,7 @@ type Migrator struct {
 	mutex       sync.Mutex
 	replicas    map[string]string
 	sourceStats *mdb.ClusterStats
+	streamers   []*OplogStreamer
 	targetStats *mdb.ClusterStats
 	workspace   Workspace
 }
@@ -53,6 +55,7 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 		return inst, err
 	}
 	// establish work space
+	os.Mkdir(inst.Staging, 0755)
 	inst.workspace = Workspace{dbName: MetaDBName, dbURI: inst.Target, staging: inst.Staging}
 	// get clusters stats
 	inst.sourceStats = mdb.NewClusterStats("")
@@ -108,6 +111,22 @@ func (inst *Migrator) NotifyWorkerExit() {
 	inst.mutex.Lock()
 	defer inst.mutex.Unlock()
 	inst.isExit = true
+}
+
+// AddOplogStreamer returns isExit
+func (inst *Migrator) AddOplogStreamer(streamer *OplogStreamer) {
+	inst.mutex.Lock()
+	defer inst.mutex.Unlock()
+	inst.streamers = append(inst.streamers, streamer)
+}
+
+// LiveStreamingOplogs set isExit to true
+func (inst *Migrator) LiveStreamingOplogs() {
+	inst.mutex.Lock()
+	defer inst.mutex.Unlock()
+	for _, streamer := range inst.streamers {
+		streamer.LiveStream()
+	}
 }
 
 // ResetIncludesTo is a convenient function for go tests
@@ -205,6 +224,23 @@ func (inst *Migrator) SourceStats() *mdb.ClusterStats {
 // TargetStats returns stats
 func (inst *Migrator) TargetStats() *mdb.ClusterStats {
 	return inst.targetStats
+}
+
+// SkipNamespace skips namespace
+func (inst *Migrator) SkipNamespace(namespace string) bool {
+	if len(inst.included) == 0 {
+		return false
+	}
+	dbName, collName := mdb.SplitNamespace(namespace)
+	allCollsInDB := dbName + ".*"
+	if inst.included[allCollsInDB] != nil || inst.included[namespace] != nil {
+		return false
+	}
+	collInAllDB := "*." + collName
+	if inst.included[collInAllDB] != nil || inst.included[namespace] != nil {
+		return false
+	}
+	return true
 }
 
 // ReadMigratorConfig validates configuration from a file

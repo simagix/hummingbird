@@ -23,17 +23,6 @@ func TestDoesFileExists(t *testing.T) {
 	assertEqual(t, true, exists)
 }
 
-func TestSkipNamespace(t *testing.T) {
-	included := map[string]*Include{}
-	included["db.*"] = &Include{Namespace: "db.*"}
-	included["*.coll"] = &Include{Namespace: "*.coll"}
-	included["dbname.collname"] = &Include{Namespace: "dbname.collname"}
-
-	assertEqual(t, false, SkipNamespace("dbname.collname", included))
-	assertEqual(t, false, SkipNamespace("db.collection", included))
-	assertEqual(t, false, SkipNamespace("database.coll", included))
-}
-
 func TestToFloat64(t *testing.T) {
 	assertEqual(t, float64(123.45), ToFloat64("123.45"))
 }

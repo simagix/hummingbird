@@ -25,13 +25,6 @@ func CollectionCreator() error {
 	inst := GetMigratorInstance()
 	sourceClient, err := GetMongoClient(inst.Source)
 	targetClient, err := GetMongoClient(inst.Target)
-	included := map[string]*Include{}
-	if len(inst.Includes) > 0 {
-		for _, include := range inst.Includes {
-			included[include.Namespace] = include
-		}
-	}
-
 	var dbNames []string
 	if dbNames, err = GetQualifiedDBs(sourceClient, MetaDBName); err != nil {
 		return err
@@ -52,10 +45,10 @@ func CollectionCreator() error {
 				continue
 			}
 			ns := fmt.Sprintf(`%v.%v`, dbName, collName)
-			if included[ns] != nil && included[ns].To != "" {
-				dbName, collName = mdb.SplitNamespace(included[ns].To)
+			if inst.Included()[ns] != nil && inst.Included()[ns].To != "" {
+				dbName, collName = mdb.SplitNamespace(inst.Included()[ns].To)
 				ns = fmt.Sprintf(`%v.%v`, dbName, collName)
-			} else if SkipNamespace(ns, included) {
+			} else if inst.SkipNamespace(ns) {
 				continue
 			}
 			var collation *options.Collation

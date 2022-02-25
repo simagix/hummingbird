@@ -49,3 +49,17 @@ func TestValidateMigratorConfig(t *testing.T) {
 	err = ValidateMigratorConfig(inst)
 	assertNotEqual(t, nil, err)
 }
+
+func TestSkipNamespace(t *testing.T) {
+	filename := "testdata/config.json"
+	inst, err := NewMigratorInstance(filename)
+	assertEqual(t, nil, err)
+	inst.included = map[string]*Include{}
+	inst.included["db.*"] = &Include{Namespace: "db.*"}
+	inst.included["*.coll"] = &Include{Namespace: "*.coll"}
+	inst.included["dbname.collname"] = &Include{Namespace: "dbname.collname"}
+
+	assertEqual(t, false, inst.SkipNamespace("dbname.collname"))
+	assertEqual(t, false, inst.SkipNamespace("db.collection"))
+	assertEqual(t, false, inst.SkipNamespace("database.coll"))
+}

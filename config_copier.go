@@ -209,7 +209,7 @@ func addShardingConfigs(sourceClient *mongo.Client, targetClient *mongo.Client, 
 	for cursor.Next(ctx) {
 		var config ConfigCollection
 		cursor.Decode(&config)
-		if SkipNamespace(config.ID, inst.Included()) {
+		if inst.SkipNamespace(config.ID) {
 			continue
 		}
 		ns := config.ID
@@ -252,7 +252,7 @@ func addChunks(sourceClient *mongo.Client, targetClient *mongo.Client, targetSha
 		if err = cursor.Decode(&cfg); err != nil {
 			return fmt.Errorf("decode error: %v", err)
 		}
-		if SkipNamespace(cfg.Namespace, inst.Included()) {
+		if inst.SkipNamespace(cfg.Namespace) {
 			continue
 		}
 		if chunks[cfg.Namespace] == nil {
@@ -262,7 +262,7 @@ func addChunks(sourceClient *mongo.Client, targetClient *mongo.Client, targetSha
 	}
 	cursor.Close(ctx)
 	for ns, arr := range chunks {
-		if SkipNamespace(ns, inst.Included()) {
+		if inst.SkipNamespace(ns) {
 			continue
 		}
 		qfilter := inst.Included()[ns]

@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -20,11 +21,6 @@ import (
 )
 
 const (
-	// CacheIndexFileExt is .index
-	CacheIndexFileExt = ".index"
-	// GZippedBSONFileExt is .bson.gz
-	GZippedBSONFileExt = ".bson.gz"
-
 	// MetaDBName defines default meta database name
 	MetaDBName = "_neutrino"
 	// MetaLogCollection defines default meta oplogs collection name
@@ -73,7 +69,10 @@ func (ws *Workspace) CleanUpWorkspace() error {
 	for _, filename := range filenames {
 		var reader *bufio.Reader
 		if reader, err = gox.NewFileReader(filename); err != nil {
-			return err
+			if err == io.EOF {
+				continue
+			}
+			return fmt.Errorf("NewFileReader %v failed: %v", filename, err)
 		}
 		for {
 			var buf []byte
@@ -81,11 +80,11 @@ func (ws *Workspace) CleanUpWorkspace() error {
 				break
 			}
 			if err = os.Remove(string(buf)); err != nil {
-				return err
+				return fmt.Errorf("os.Remove failed: %v", err)
 			}
 		}
 		if err = os.Remove(filename); err != nil {
-			return err
+			return fmt.Errorf("os.Remove failed: %v", err)
 		}
 	}
 	return nil
@@ -95,7 +94,7 @@ func (ws *Workspace) CleanUpWorkspace() error {
 func (ws *Workspace) Reset() error {
 	var err error
 	if err = ws.DropMetaDB(); err != nil {
-		return err
+		return fmt.Errorf("DropMetaDB: %v", err)
 	}
 	return ws.CleanUpWorkspace()
 }

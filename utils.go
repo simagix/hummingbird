@@ -7,8 +7,8 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 
-	"github.com/simagix/keyhole/mdb"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -30,21 +30,6 @@ func DoesFileExist(filename string) bool {
 	return !info.IsDir()
 }
 
-// SkipNamespace skips namespace
-func SkipNamespace(namespace string, included map[string]*Include) bool {
-	if len(included) == 0 {
-		return false
-	}
-	dbName, collName := mdb.SplitNamespace(namespace)
-	if included[dbName+".*"] != nil || included[namespace] != nil {
-		return false
-	}
-	if included["*."+collName] != nil || included[namespace] != nil {
-		return false
-	}
-	return true
-}
-
 // ToFloat64 converts a value to float64
 func ToFloat64(s interface{}) float64 {
 	n, err := strconv.ParseFloat(fmt.Sprintf("%v", s), 64)
@@ -62,4 +47,15 @@ func ToInt32(s interface{}) int32 {
 // ToInt64 converts a value to int64
 func ToInt64(s interface{}) int64 {
 	return int64(ToFloat64(s))
+}
+
+// RedactedURI redacted login and password
+func RedactedURI(uri string) string {
+	str := uri
+	a := strings.Index(str, "://") + 3
+	b := strings.LastIndex(str, "@")
+	if b > 0 {
+		str = str[:a] + "XXX:xxxxxx" + str[b:]
+	}
+	return str
 }

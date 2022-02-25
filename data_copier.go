@@ -116,7 +116,6 @@ func DataCopier() error {
 	if err = Wait(); err != nil {
 		return fmt.Errorf("Wait failed: %v", err)
 	}
-	inst.NotifyWorkerExit()
 	logger.Infof("data copied, took %v", time.Since(now))
 	return nil
 }

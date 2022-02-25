@@ -15,7 +15,7 @@ func Start(filename string, extra ...bool) error {
 	var isConfig, isData, isOplog bool
 	inst, err := NewMigratorInstance(filename)
 	if err != nil {
-		return err
+		return fmt.Errorf("NewMigratorInstance failed: %v", err)
 	}
 	if inst.Command == CommandIndex {
 		return IndexCopier()
@@ -44,29 +44,32 @@ func Start(filename string, extra ...bool) error {
 	}
 	if isData {
 		if err = inst.CheckIfBalancersDisabled(); err != nil { // if balancer is running, exits
-			return err
+			return fmt.Errorf("CheckIfBalancersDisabled failed: %v", err)
 		}
 	}
 	if inst.IsDrop {
 		if err = inst.DropCollections(); err != nil {
-			return err
+			return fmt.Errorf("DropCollections failed: %v", err)
 		}
-	}
-	if isOplog {
-		OplogCopier()
 	}
 	if isConfig {
 		if err = ConfigCopier(); err != nil {
-			return err
+			return fmt.Errorf("ConfigCopier failed: %v", err)
+		}
+	}
+	if isOplog {
+		if err = OplogStreamers(); err != nil {
+			return fmt.Errorf("OplogStreamers failed: %v", err)
 		}
 	}
 	if isData {
 		GetMigratorInstance().workspace.Reset() // reset meta data and clean up staging
 		if err = DataCopier(); err != nil {
-			return err
+			return fmt.Errorf("DataCopier failed: %v", err)
 		}
 	}
 	inst.NotifyWorkerExit()
+	inst.LiveStreamingOplogs()
 	wg.Wait()
 	return nil
 }

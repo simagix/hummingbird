@@ -55,7 +55,9 @@ func TestCleanUpWorkspace(t *testing.T) {
 	assertEqual(t, false, DoesFileExist(filename))
 	for _, f := range filenames {
 		assertEqual(t, false, DoesFileExist(f))
+		os.Remove(f)
 	}
+	os.Remove(filename)
 }
 
 func TestReset(t *testing.T) {
