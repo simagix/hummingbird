@@ -107,7 +107,7 @@ func (inst *Migrator) IsExit() bool {
 func (inst *Migrator) NotifyWorkerExit() {
 	inst.mutex.Lock()
 	defer inst.mutex.Unlock()
-	inst.isExit = false
+	inst.isExit = true
 }
 
 // ResetIncludesTo is a convenient function for go tests

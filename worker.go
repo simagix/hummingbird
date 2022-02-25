@@ -66,5 +66,6 @@ func Worker(id int) error {
 		ws.UpdateTask(task)
 		time.Sleep(100 * time.Millisecond)
 	}
+	logger.Infof(`[%v] exits`, workerID)
 	return nil
 }

@@ -34,9 +34,13 @@ func Start(filename string, extra ...bool) error {
 			isOplog = true
 		}
 	}
-	addr := fmt.Sprintf(":%d", inst.Port)
+	wg := gox.NewWaitGroup(4)
 	if len(extra) == 0 {
-		go StartWebServer(addr)
+		wg.Add(1)
+		go func(port int) {
+			defer wg.Done()
+			StartWebServer(port)
+		}(inst.Port)
 	}
 	if isData {
 		if err = inst.CheckIfBalancersDisabled(); err != nil { // if balancer is running, exits
@@ -62,5 +66,7 @@ func Start(filename string, extra ...bool) error {
 			return err
 		}
 	}
+	inst.NotifyWorkerExit()
+	wg.Wait()
 	return nil
 }

@@ -5,6 +5,7 @@ package hummingbird
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -18,10 +19,11 @@ const (
 )
 
 // StartWebServer start an http server at port 3629
-func StartWebServer(addr string) {
+func StartWebServer(port int) {
 	http.HandleFunc("/favicon.ico", faviconHandler)
 	http.HandleFunc("/", gox.Cors(handler))
-
+	addr := fmt.Sprintf(":%d", port)
+	gox.GetLogger("StartWebServer").Infof("starting web server, http://localhost:%v", port)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("another mongopush is running: %v", err)
 	}
