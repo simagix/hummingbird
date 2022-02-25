@@ -9,7 +9,7 @@ import (
 )
 
 // Start starts a migration
-func Start(filename string) error {
+func Start(filename string, extra ...bool) error {
 	gox.GetLogger("Start").Remarkf("start a migration from %v", filename)
 	var err error
 	var isConfig, isData, isOplog bool
@@ -33,6 +33,10 @@ func Start(filename string) error {
 		if inst.Command == CommandData {
 			isOplog = true
 		}
+	}
+	addr := fmt.Sprintf(":%d", inst.Port)
+	if len(extra) == 0 {
+		go StartWebServer(addr)
 	}
 	if isData {
 		if err = inst.CheckIfBalancersDisabled(); err != nil { // if balancer is running, exits

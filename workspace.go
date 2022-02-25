@@ -220,21 +220,19 @@ func (ws *Workspace) CountAllStatus(client *mongo.Client) (TaskStatusCounts, err
 	return counts, err
 }
 
-// AuditLongRunningTasks resets long running processing to added
-func (ws *Workspace) AuditLongRunningTasks(client *mongo.Client, minutesAgo int) (int, error) {
-	if minutesAgo >= 0 {
-		return 0, fmt.Errorf("invlidate past time %v, should be negative", minutesAgo)
+// ResetLongRunningTasks resets long running processing to added
+func (ws *Workspace) ResetLongRunningTasks(ago time.Duration) (int, error) {
+	client, err := GetMongoClient(ws.dbURI)
+	if err != nil {
+		return 0, fmt.Errorf("GetMongoClient failed: %v", err)
 	}
-	var err error
+	if ago >= 0 {
+		return 0, fmt.Errorf("invlidate past time %v, should be negative", ago)
+	}
 	ctx := context.Background()
 	coll := client.Database(MetaDBName).Collection(Tasks)
 	updates := bson.M{"$set": bson.M{"status": TaskAdded, "begin_time": time.Time{}, "updated_by": "maid"}}
-	old := time.Now().Add(time.Duration(minutesAgo) * time.Minute)
-	filter := bson.D{{"status", TaskProcessing}, {"begin_time", bson.M{"$lt": old}}}
+	filter := bson.D{{"status", TaskProcessing}, {"begin_time", bson.M{"$lt": time.Now().Add(ago)}}}
 	result, err := coll.UpdateMany(ctx, filter, updates)
-	if err == nil && result.ModifiedCount > 0 {
-		gox.GetLogger("").Warnf("%v long running processes status was reset to %v", result.ModifiedCount, TaskAdded)
-		return int(result.ModifiedCount), nil
-	}
-	return 0, err
+	return int(result.ModifiedCount), err
 }

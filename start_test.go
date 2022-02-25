@@ -12,7 +12,7 @@ import (
 
 func TestStartAll(t *testing.T) {
 	filename := "testdata/quickstart.json"
-	err := Start("none-exists")
+	err := Start("none-exists", true)
 	assertNotEqual(t, nil, err)
 
 	inst, err := NewMigratorInstance(filename)
@@ -21,34 +21,34 @@ func TestStartAll(t *testing.T) {
 	err = inst.DropCollections()
 	assertEqual(t, nil, err)
 
-	err = Start(filename)
+	err = Start(filename, true)
 	assertEqual(t, nil, err)
 }
 
 func TestStartConfig(t *testing.T) {
 	filename := "testdata/config.json"
-	err := Start("none-exists")
+	err := Start("none-exists", true)
 	assertNotEqual(t, nil, err)
 
-	err = Start(filename)
+	err = Start(filename, true)
 	assertEqual(t, nil, err)
 }
 
 func TestStartIndex(t *testing.T) {
 	filename := "testdata/index.json"
-	err := Start("none-exists")
+	err := Start("none-exists", true)
 	assertNotEqual(t, nil, err)
 
-	err = Start(filename)
+	err = Start(filename, true)
 	assertEqual(t, nil, err)
 }
 
 func TestStartDataOnly(t *testing.T) {
 	filename := "testdata/data-only.json"
-	err := Start("none-exists")
+	err := Start("none-exists", true)
 	assertNotEqual(t, nil, err)
 
-	err = Start(filename)
+	err = Start(filename, true)
 	assertEqual(t, nil, err)
 
 	inst, err := NewMigratorInstance(filename)
@@ -59,7 +59,7 @@ func TestStartDataOnly(t *testing.T) {
 	tmpfile := "temp-config.json"
 	err = ioutil.WriteFile(tmpfile, data, 0644)
 	assertEqual(t, nil, err)
-	err = Start(tmpfile)
+	err = Start(tmpfile, true)
 	assertNotEqual(t, nil, err)
 	err = os.Remove(tmpfile)
 	assertEqual(t, nil, err)

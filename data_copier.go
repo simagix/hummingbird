@@ -165,7 +165,7 @@ func Wait() error {
 				counts.Added, counts.Completed, counts.Failed, counts.Processing, counts.Splitting)
 			btime = time.Now()
 			count++
-			if _, err = ws.AuditLongRunningTasks(client, -10); err != nil { // reset if a task already lasts 10 mins
+			if _, err = ws.ResetLongRunningTasks(-10 * time.Minute); err != nil { // reset if a task already lasts 10 mins
 				return fmt.Errorf(`AuditLongRunningTasks failed: %v`, err)
 			}
 		}
