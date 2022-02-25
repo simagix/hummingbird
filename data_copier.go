@@ -5,6 +5,7 @@ package hummingbird
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -32,6 +33,15 @@ const (
 	// TaskSplitting splitting
 	TaskSplitting = "splitting"
 )
+
+// TaskStatusCounts stores counts of all status
+type TaskStatusCounts struct {
+	Added      int32
+	Completed  int32
+	Failed     int32
+	Processing int32
+	Splitting  int32
+}
 
 // DataCopier copies data from source to target
 func DataCopier() error {
@@ -96,9 +106,17 @@ func DataCopier() error {
 	}
 	ws := inst.Workspace()
 	ws.InsertTasks(tasks)
+	for i := 0; i < inst.Workers; i++ { // start all workers
+		go Worker(i + 1)
+		time.Sleep(10 * time.Millisecond)
+	}
 	if err = Splitter(tasks); err != nil {
 		return fmt.Errorf("Splitter failed: %v", err)
 	}
+	if err = Wait(); err != nil {
+		return fmt.Errorf("Wait failed: %v", err)
+	}
+	inst.NotifyWorkerExit()
 	logger.Infof("data copied, took %v", time.Since(now))
 	return nil
 }
@@ -118,4 +136,46 @@ func getQualifiedCollections(uri string) ([]*Include, error) {
 		includes = append(includes, &include)
 	}
 	return includes, nil
+}
+
+// Wait waits for all tasks to be processed
+func Wait() error {
+	inst := GetMigratorInstance()
+	ws := inst.Workspace()
+	logger := gox.GetLogger("Wait")
+	client, err := GetMongoClient(inst.Target)
+	if err != nil {
+		return fmt.Errorf("GetMongoClient failed: %v", err)
+	}
+	var counts TaskStatusCounts
+	btime := time.Now()
+	if counts, err = ws.CountAllStatus(client); err != nil {
+		return fmt.Errorf(`CountAllStatus failed: %v`, err)
+	}
+	logger.Infof("added: %v, completed: %v, failed: %v, processing: %v, splitting: %v",
+		counts.Added, counts.Completed, counts.Failed, counts.Processing, counts.Splitting)
+	count := 0
+	for {
+		time.Sleep(30 * time.Second)
+		if counts, err = ws.CountAllStatus(client); err != nil {
+			return fmt.Errorf(`CountAllStatus failed: %v`, err)
+		}
+		if time.Since(btime) > 1*time.Minute {
+			log.Printf("added: %v, completed: %v, failed: %v, processing: %v, splitting: %v",
+				counts.Added, counts.Completed, counts.Failed, counts.Processing, counts.Splitting)
+			btime = time.Now()
+			count++
+			if _, err = ws.AuditLongRunningTasks(client, -10); err != nil { // reset if a task already lasts 10 mins
+				return fmt.Errorf(`AuditLongRunningTasks failed: %v`, err)
+			}
+		}
+		if count > 60 {
+			count = 0
+			logger.Infof("added: %v, completed: %v, failed: %v, processing: %v, splitting: %v",
+				counts.Added, counts.Completed, counts.Failed, counts.Processing, counts.Splitting)
+		}
+		if (counts.Added + counts.Processing) == 0 {
+			return nil
+		}
+	}
 }

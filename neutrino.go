@@ -16,6 +16,8 @@ const (
 	MaxBlockSize = 10000
 	// MaxNumberWorkers defines max number of concurrent workers
 	MaxNumberWorkers = 16
+	// NumberWorkers defines max number of concurrent workers
+	NumberWorkers = 8
 	// Port defines port number to listen to
 	Port = 3629
 )

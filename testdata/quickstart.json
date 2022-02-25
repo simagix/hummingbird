@@ -5,9 +5,9 @@
   "target": "mongodb://user:password@localhost:37017/?compressors=zstd&readPreference=secondaryPreferred",
   "includes": [
     { "namespace": "Documents.*"},
-    { "namespace": "keyhole.numbers"},
+    { "namespace": "keyhole.numbers", "to": "testdb.counts"},
     { "namespace": "keyhole.favorites", "filter": {"ts": {"$gt":{"$date": "2021-09-23T10:20:00.266Z"}}} },
-    { "namespace": "keyhole.vehicles", "filter": { "color": { "$in": [ "Black", "White" ] }}, "to": "monochrome.cars" }
+    { "namespace": "keyhole.vehicles", "filter": { "color": { "$in": [ "Black", "White" ] }} }
   ],
   "yes": true,
   "license": "Apache-2.0"

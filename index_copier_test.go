@@ -60,10 +60,4 @@ func TestIndexCopier(t *testing.T) {
 	bson.Unmarshal(tcursor.Current, &tindex)
 	defer tcursor.Close(ctx)
 	assertEqual(t, locale, tindex.Collation.Map()["locale"])
-
-	filename = "testdata/minimum.json"
-	_, err = NewMigratorInstance(filename)
-	assertEqual(t, nil, err)
-	err = IndexCopier()
-	assertEqual(t, nil, err)
 }

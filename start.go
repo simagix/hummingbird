@@ -34,29 +34,24 @@ func Start(filename string) error {
 			isOplog = true
 		}
 	}
-
 	if isData {
 		if err = inst.CheckIfBalancersDisabled(); err != nil { // if balancer is running, exits
 			return err
 		}
 	}
-
 	if inst.IsDrop {
 		if err = inst.DropCollections(); err != nil {
 			return err
 		}
 	}
-
 	if isOplog {
 		OplogCopier()
 	}
-
 	if isConfig {
 		if err = ConfigCopier(); err != nil {
 			return err
 		}
 	}
-
 	if isData {
 		GetMigratorInstance().workspace.Reset() // reset meta data and clean up staging
 		if err = DataCopier(); err != nil {

@@ -29,7 +29,12 @@ func TestDataCopier(t *testing.T) {
 	ws := inst.Workspace()
 	err = ws.Reset()
 	assertEqual(t, nil, err)
-	inst.DropCollections()
 	err = DataCopier()
 	assertEqual(t, nil, err)
+}
+
+func TestGetQualifiedCollections(t *testing.T) {
+	includes, err := getQualifiedCollections(TestReplicaURI)
+	assertEqual(t, nil, err)
+	assertNotEqual(t, 0, len(includes))
 }

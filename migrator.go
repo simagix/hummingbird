@@ -31,7 +31,9 @@ type Migrator struct {
 	Staging  string   `bson:"staging,omitempty"`
 	Yes      bool     `bson:"yes,omitempty"`
 
+	isExit      bool
 	included    map[string]*Include
+	mutex       sync.Mutex
 	replicas    map[string]string
 	sourceStats *mdb.ClusterStats
 	targetStats *mdb.ClusterStats
@@ -94,6 +96,20 @@ func GetMigratorInstance() *Migrator {
 	return migratorInstance
 }
 
+// IsExit returns isExit
+func (inst *Migrator) IsExit() bool {
+	inst.mutex.Lock()
+	defer inst.mutex.Unlock()
+	return inst.isExit
+}
+
+// NotifyWorkerExit set isExit to true
+func (inst *Migrator) NotifyWorkerExit() {
+	inst.mutex.Lock()
+	defer inst.mutex.Unlock()
+	inst.isExit = false
+}
+
 // ResetIncludesTo is a convenient function for go tests
 func (inst *Migrator) ResetIncludesTo(includes Includes) {
 	migratorInstance.Includes = includes
@@ -123,7 +139,7 @@ func (inst *Migrator) DropCollections() error {
 			return err
 		}
 		for _, dbName := range dbNames {
-			logger.Info("drop database " + dbName)
+			logger.Debug("drop database " + dbName)
 			if err = client.Database(dbName).Drop(ctx); err != nil {
 				return err
 			}
@@ -132,7 +148,7 @@ func (inst *Migrator) DropCollections() error {
 		for _, include := range inst.Included() {
 			dbName, collName := mdb.SplitNamespace(include.Namespace)
 			if collName == "" || collName == "*" {
-				logger.Info("drop database " + dbName)
+				logger.Debug("drop database " + dbName)
 				if err = client.Database(dbName).Drop(ctx); err != nil {
 					return err
 				}
@@ -229,9 +245,9 @@ func ValidateMigratorConfig(migrator *Migrator) error {
 		values = append(values, fmt.Sprintf(`"workspace":"%v"`, DefaultStaging))
 		migrator.Staging = DefaultStaging
 	}
-	if migrator.Workers < MaxNumberWorkers {
-		values = append(values, fmt.Sprintf(`"workers":%v`, MaxNumberWorkers))
-		migrator.Workers = MaxNumberWorkers
+	if migrator.Workers < 1 {
+		values = append(values, fmt.Sprintf(`"workers":%v`, NumberWorkers))
+		migrator.Workers = NumberWorkers
 	}
 	if len(values) > 0 {
 		logger.Info("set default {", strings.Join(values, ","), "}")

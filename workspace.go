@@ -9,11 +9,14 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/simagix/gox"
+	"github.com/simagix/keyhole/mdb"
 )
 
 const (
@@ -40,25 +43,25 @@ type Workspace struct {
 }
 
 // DropMetaDB drops meta database
-func (p *Workspace) DropMetaDB() error {
-	if p.dbURI == "" || p.dbName == "" {
-		return fmt.Errorf("db %v is nil", p.dbName)
+func (ws *Workspace) DropMetaDB() error {
+	if ws.dbURI == "" || ws.dbName == "" {
+		return fmt.Errorf("db %v is nil", ws.dbName)
 	}
-	client, err := GetMongoClient(p.dbURI)
+	client, err := GetMongoClient(ws.dbURI)
 	if err != nil {
 		return fmt.Errorf("GetMongoClient failed: %v", err)
 	}
-	return client.Database(p.dbName).Drop(context.Background())
+	return client.Database(ws.dbName).Drop(context.Background())
 }
 
 // CleanUpWorkspace removes all cached file
-func (p *Workspace) CleanUpWorkspace() error {
-	if p.staging == "" {
+func (ws *Workspace) CleanUpWorkspace() error {
+	if ws.staging == "" {
 		return fmt.Errorf("workspace staging is not defined")
 	}
 	var err error
 	var filenames []string
-	filepath.WalkDir(p.staging, func(s string, d fs.DirEntry, err error) error {
+	filepath.WalkDir(ws.staging, func(s string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -89,17 +92,17 @@ func (p *Workspace) CleanUpWorkspace() error {
 }
 
 // Reset drops meta database and clean up workspace
-func (p *Workspace) Reset() error {
+func (ws *Workspace) Reset() error {
 	var err error
-	if err = p.DropMetaDB(); err != nil {
+	if err = ws.DropMetaDB(); err != nil {
 		return err
 	}
-	return p.CleanUpWorkspace()
+	return ws.CleanUpWorkspace()
 }
 
 // InsertTasks inserts tasks to database
-func (p *Workspace) InsertTasks(tasks []*Task) error {
-	client, err := GetMongoClient(p.dbURI)
+func (ws *Workspace) InsertTasks(tasks []*Task) error {
+	client, err := GetMongoClient(ws.dbURI)
 	if err != nil {
 		return fmt.Errorf("GetMongoClient failed: %v", err)
 	}
@@ -120,8 +123,8 @@ func (p *Workspace) InsertTasks(tasks []*Task) error {
 }
 
 // UpdateTask updates task
-func (p *Workspace) UpdateTask(task *Task) error {
-	client, err := GetMongoClient(p.dbURI)
+func (ws *Workspace) UpdateTask(task *Task) error {
+	client, err := GetMongoClient(ws.dbURI)
 	if err != nil {
 		return fmt.Errorf("GetMongoClient failed: %v", err)
 	}
@@ -150,4 +153,88 @@ func (p *Workspace) UpdateTask(task *Task) error {
 		return fmt.Errorf(`no matched parent task updated: "%v", %v`, task.ParentID, err)
 	}
 	return nil
+}
+
+// FindNextTaskAndUpdate returns task by replica a set name
+func (ws *Workspace) FindNextTaskAndUpdate(replset string, updatedBy string, rev int) (*Task, error) {
+	client, err := GetMongoClient(ws.dbURI)
+	if err != nil {
+		return nil, fmt.Errorf("FindNextTaskAndUpdate failed: %v", err)
+	}
+	var ctx = context.Background()
+	var task = Task{}
+	filter := bson.D{{"status", TaskAdded}, {"replica_set", replset}}
+	if replset == "" {
+		filter = bson.D{{"status", TaskAdded}}
+	}
+	coll := client.Database(MetaDBName).Collection(Tasks)
+	opts := options.FindOneAndUpdate()
+	opts.SetReturnDocument(options.After)
+	opts.SetSort(bson.D{{"replica_set", 1}, {"parent_id", rev}})
+	updates := bson.M{"$set": bson.M{"status": TaskProcessing, "begin_time": time.Now(), "updated_by": updatedBy}}
+	if err = coll.FindOneAndUpdate(ctx, filter, updates, opts).Decode(&task); err != nil {
+		return nil, err
+	}
+	return &task, nil
+}
+
+// CountAllStatus returns task
+func (ws *Workspace) CountAllStatus(client *mongo.Client) (TaskStatusCounts, error) {
+	var err error
+	var counts TaskStatusCounts
+	ctx := context.Background()
+	pipeline := `[
+		{
+			"$sort": { "status": 1 }
+		}, {
+			"$group": {
+				"_id": "$status", 
+				"count": { "$sum": 1 }
+			}
+		}
+	]`
+	coll := client.Database(MetaDBName).Collection(Tasks)
+	optsAgg := options.Aggregate().SetAllowDiskUse(true)
+	var cursor *mongo.Cursor
+	if cursor, err = coll.Aggregate(ctx, mdb.MongoPipeline(pipeline), optsAgg); err != nil {
+		return counts, err
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var doc bson.M
+		if err = cursor.Decode(&doc); err != nil {
+			continue
+		}
+		if doc["_id"] == TaskAdded {
+			counts.Added = ToInt32(doc["count"])
+		} else if doc["_id"] == TaskCompleted {
+			counts.Completed = ToInt32(doc["count"])
+		} else if doc["_id"] == TaskFailed {
+			counts.Failed = ToInt32(doc["count"])
+		} else if doc["_id"] == TaskProcessing {
+			counts.Processing = ToInt32(doc["count"])
+		} else if doc["_id"] == TaskSplitting {
+			counts.Splitting = ToInt32(doc["count"])
+		}
+	}
+	return counts, err
+}
+
+// AuditLongRunningTasks resets long running processing to added
+func (ws *Workspace) AuditLongRunningTasks(client *mongo.Client, minutesAgo int) (int, error) {
+	if minutesAgo >= 0 {
+		return 0, fmt.Errorf("invlidate past time %v, should be negative", minutesAgo)
+	}
+	var err error
+	ctx := context.Background()
+	coll := client.Database(MetaDBName).Collection(Tasks)
+	updates := bson.M{"$set": bson.M{"status": TaskAdded, "begin_time": time.Time{}, "updated_by": "maid"}}
+	old := time.Now().Add(time.Duration(minutesAgo) * time.Minute)
+	filter := bson.D{{"status", TaskProcessing}, {"begin_time", bson.M{"$lt": old}}}
+	result, err := coll.UpdateMany(ctx, filter, updates)
+	if err == nil && result.ModifiedCount > 0 {
+		gox.GetLogger("").Warnf("%v long running processes status was reset to %v", result.ModifiedCount, TaskAdded)
+		return int(result.ModifiedCount), nil
+	}
+	return 0, err
 }

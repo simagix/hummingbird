@@ -190,7 +190,7 @@ func addShardingConfigs(sourceClient *mongo.Client, targetClient *mongo.Client, 
 			time.Sleep(1 * time.Second)
 		}
 		if cfg.Partitioned {
-			logger.Infof(`enable sharding on database %v`, cfg.ID)
+			logger.Debugf(`enable sharding on database %v`, cfg.ID)
 			if err = targetClient.Database("admin").RunCommand(ctx, bson.D{{"enableSharding", cfg.ID}}).Decode(&doc); err != nil {
 				return fmt.Errorf(`enableSharding %v failed`, cfg.ID)
 			}

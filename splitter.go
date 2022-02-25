@@ -87,7 +87,7 @@ func splitTask(client *mongo.Client, task *Task) error {
 			count = 0
 			first = nil
 			last = nil
-		} else {
+		} else if cursor.RemainingBatchLength() == 0 {
 			cursor.Decode(&last)
 		}
 	}
