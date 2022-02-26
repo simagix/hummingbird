@@ -4,6 +4,7 @@ package hummingbird
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/simagix/gox"
 )
@@ -39,7 +40,9 @@ func Start(filename string, extra ...bool) error {
 		wg.Add(1)
 		go func(port int) {
 			defer wg.Done()
-			StartWebServer(port)
+			if err := StartWebServer(port); err != nil {
+				log.Fatalf("StartWebServer failed: %v", err)
+			}
 		}(inst.Port)
 	}
 	if isData {

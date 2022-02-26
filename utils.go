@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -58,4 +59,12 @@ func RedactedURI(uri string) string {
 		str = str[:a] + "XXX:xxxxxx" + str[b:]
 	}
 	return str
+}
+
+// GetDateTime returns formatted date/time
+func GetDateTime() string {
+	t := time.Now()
+	return fmt.Sprintf("%02d%02d%02d.%02d%02d%02d.%03d",
+		t.Year()%100, t.Month(), t.Day(),
+		t.Hour(), t.Minute(), t.Second(), t.Nanosecond()/1000/1000)
 }

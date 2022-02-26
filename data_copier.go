@@ -160,7 +160,7 @@ func Wait() error {
 			return fmt.Errorf(`CountAllStatus failed: %v`, err)
 		}
 		if time.Since(btime) > 1*time.Minute {
-			log.Printf("added: %v, completed: %v, failed: %v, processing: %v, splitting: %v",
+			log.Printf("added: %v, completed: %v, failed: %v, processing: %v, splitting: %v\n",
 				counts.Added, counts.Completed, counts.Failed, counts.Processing, counts.Splitting)
 			btime = time.Now()
 			count++

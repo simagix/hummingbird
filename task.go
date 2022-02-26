@@ -32,7 +32,7 @@ type Task struct {
 	EndTime      time.Time           `bson:"end_time"`
 	ID           primitive.ObjectID  `bson:"_id"`
 	IDs          []interface{}       `bson:"ids"`
-	Include      Include             `bson:"query_filter"`
+	Include      Include             `bson:"include"`
 	Inserted     int                 `bson:"inserted"`
 	Namespace    string              `bson:"ns"`
 	ParentID     *primitive.ObjectID `bson:"parent_id"`

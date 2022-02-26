@@ -27,6 +27,9 @@ func TestCachedOplogs(t *testing.T) {
 			t.Fatal(err)
 		}
 		oplogs = append(oplogs, oplog)
+		if len(oplogs) >= 1000 {
+			break
+		}
 	}
 
 	ofile := filepath.Base(filename)

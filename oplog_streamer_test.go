@@ -3,8 +3,12 @@
 package hummingbird
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/simagix/keyhole/mdb"
 )
 
 func TestOplogStreamers(t *testing.T) {
@@ -16,13 +20,32 @@ func TestOplogStreamers(t *testing.T) {
 }
 
 func TestCacheOplogs(t *testing.T) {
-	streamer := OplogStreamer{SetName: "replset", Staging: "./workspace",
+	inst, err := NewMigratorInstance("testdata/minimum.json")
+	ws := inst.Workspace()
+	ws.CleanUpWorkspace()
+	ctx := context.Background()
+	replset := "replset"
+	streamer := OplogStreamer{SetName: replset, Staging: "./workspace",
 		URI: TestReplicaURI, isCache: true}
+	streamer.filename = fmt.Sprintf("%v/%v%v", streamer.Staging, replset, CacheIndexFileExt)
 	go func() {
 		err := streamer.CacheOplogs()
 		assertEqual(t, nil, err)
 	}()
 
-	time.Sleep(2 * time.Second)
+	client, err := GetMongoClient(TestReplicaURI)
+	assertEqual(t, nil, err)
+	dbName, _ := mdb.SplitNamespace(TestNS)
+	client.Database(dbName).Drop(ctx)
+
+	tclient, err := GetMongoClient(TestTargetURI)
+	assertEqual(t, nil, err)
+	tclient.Database(dbName).Drop(ctx)
+
+	DataGenMulti(client.Database(dbName), 4096, 3)
+
+	time.Sleep(1 * time.Second)
 	streamer.LiveStream()
+	DataGenMulti(client.Database(dbName), 1024, 3)
+	time.Sleep(1 * time.Second)
 }
