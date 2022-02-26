@@ -16,6 +16,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// OplogWriteModel stores namespace and write model
+type OplogWriteModel struct {
+	Namespace  string
+	WriteModel mongo.WriteModel
+}
+
 // GetTailableCursor returns a tailable cursor
 func GetTailableCursor(client *mongo.Client, ts primitive.Timestamp) (*mongo.Cursor, error) {
 	coll := client.Database("local").Collection("oplog.rs")
@@ -24,7 +30,6 @@ func GetTailableCursor(client *mongo.Client, ts primitive.Timestamp) (*mongo.Cur
 	opts.SetCursorType(options.TailableAwait)
 	opts.SetBatchSize(OplogBatchSize)
 	opts.SetMaxAwaitTime(time.Second)
-	// opts.SetOplogReplay(true)// doc says shouldn't be used
 	filter := bson.M{"ts": bson.M{"$gte": ts}}
 	return coll.Find(context.Background(), filter, opts)
 }
@@ -144,21 +149,14 @@ func BulkWriteOplogs(oplogs []Oplog) error {
 			}
 		}
 	}
-	logger.Infof("oplogs %v, inserted: %v, modified: %v, deleted: %v", len(oplogs), inserted, modified, deleted)
+	logger.Debugf("oplogs %v, inserted: %v, modified: %v, deleted: %v", len(oplogs), inserted, modified, deleted)
 	return nil
-}
-
-// OplogWriteModel stores namespace and write model
-type OplogWriteModel struct {
-	Namespace  string
-	WriteModel mongo.WriteModel
 }
 
 // GetWriteModels returns WriteModel from an oplog
 func GetWriteModels(oplog Oplog) []OplogWriteModel {
 	inst := GetMigratorInstance()
 	ns := inst.GetToNamespace(oplog.Namespace)
-	fmt.Println(oplog.Namespace, ns)
 	switch oplog.Operation {
 	case "c":
 		var err error
@@ -182,8 +180,8 @@ func GetWriteModels(oplog Oplog) []OplogWriteModel {
 				}
 				wmodels = append(wmodels, GetWriteModels(oplog)...)
 			}
+			gox.GetLogger().Debugf("c found applyOps", len(wmodels))
 		}
-		fmt.Println("c found applyOps", len(wmodels))
 		return wmodels
 	case "d":
 		op := mongo.NewDeleteOneModel()
@@ -194,7 +192,6 @@ func GetWriteModels(oplog Oplog) []OplogWriteModel {
 		op.SetDocument(oplog.Object)
 		return []OplogWriteModel{OplogWriteModel{ns, op}}
 	case "n":
-		fmt.Println("n ignored")
 		return nil
 	case "u":
 		var isUpdate bool

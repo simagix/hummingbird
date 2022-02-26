@@ -3,7 +3,7 @@ module github.com/simagix/hummingbird
 go 1.17
 
 require (
-	github.com/simagix/gox v0.2.4-0.20220131221741-09a85844aa15
+	github.com/simagix/gox v0.2.4-0.20220226131255-b9dcc7e8afc1
 	github.com/simagix/keyhole v1.2.2-0.20220225131322-676854097886
 	go.mongodb.org/mongo-driver v1.8.3
 )

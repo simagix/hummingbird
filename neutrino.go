@@ -51,7 +51,7 @@ func Neutrino(version string) error {
 		fmt.Println(version)
 		return nil
 	}
-	logger := gox.GetLogger(version)
+	logger := gox.GetLogger(version, false) // print version and disable in-mem logs
 	if *start != "" {
 		return Start(*start)
 	} else if *resume != "" {

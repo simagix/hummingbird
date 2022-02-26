@@ -6,10 +6,5 @@ import "fmt"
 
 // Resume resumes a migration
 func Resume(filename string) error {
-	inst, err := NewMigratorInstance(filename)
-	if err != nil {
-		return err
-	}
-	fmt.Println(inst.Command)
-	return nil
+	return fmt.Errorf("not implemented")
 }

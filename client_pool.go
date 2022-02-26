@@ -58,7 +58,7 @@ func GetMongoClientWait(connstr string, duration ...time.Duration) (*mongo.Clien
 	}
 	for i := 0; i < 3; i++ {
 		if client, err = GetMongoClient(connstr); err != nil {
-			gox.GetLogger("").Error(err)
+			gox.GetLogger().Error(err)
 			time.Sleep(timeout)
 			continue
 		}

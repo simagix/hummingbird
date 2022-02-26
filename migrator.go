@@ -244,7 +244,7 @@ func (inst *Migrator) GetToNamespace(ns string) string {
 	if len(inst.included) == 0 {
 		return ns
 	}
-	if inst.included[ns].To != "" {
+	if inst.included[ns] != nil && inst.included[ns].To != "" {
 		return inst.included[ns].To
 	}
 	return ns
