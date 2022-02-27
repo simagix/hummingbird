@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/simagix/keyhole/mdb"
 
@@ -32,6 +33,7 @@ type Migrator struct {
 	Staging  string   `bson:"staging,omitempty"`
 	Yes      bool     `bson:"yes,omitempty"`
 
+	genesis     time.Time
 	isExit      bool
 	included    map[string]*Include
 	mutex       sync.Mutex
@@ -54,6 +56,7 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 	if err = ValidateMigratorConfig(inst); err != nil {
 		return inst, err
 	}
+	inst.genesis = time.Now()
 	// establish work space
 	os.Mkdir(inst.Staging, 0755)
 	inst.workspace = Workspace{dbName: MetaDBName, dbURI: inst.Target, staging: inst.Staging}

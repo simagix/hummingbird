@@ -176,7 +176,7 @@ func (ws *Workspace) UpdateTask(task *Task) error {
 func (ws *Workspace) FindNextTaskAndUpdate(replset string, updatedBy string, rev int) (*Task, error) {
 	client, err := GetMongoClient(ws.dbURI)
 	if err != nil {
-		return nil, fmt.Errorf("FindNextTaskAndUpdate failed: %v", err)
+		return nil, fmt.Errorf("GetMongoClient failed: %v", err)
 	}
 	var ctx = context.Background()
 	var task = Task{}
@@ -196,8 +196,11 @@ func (ws *Workspace) FindNextTaskAndUpdate(replset string, updatedBy string, rev
 }
 
 // CountAllStatus returns task
-func (ws *Workspace) CountAllStatus(client *mongo.Client) (TaskStatusCounts, error) {
-	var err error
+func (ws *Workspace) CountAllStatus() (TaskStatusCounts, error) {
+	client, err := GetMongoClient(ws.dbURI)
+	if err != nil {
+		return TaskStatusCounts{}, fmt.Errorf("GetMongoClient failed: %v", err)
+	}
 	var counts TaskStatusCounts
 	ctx := context.Background()
 	pipeline := `[

@@ -141,16 +141,11 @@ func Wait() error {
 	inst := GetMigratorInstance()
 	ws := inst.Workspace()
 	logger := gox.GetLogger()
-	client, err := GetMongoClient(inst.Target)
-	if err != nil {
-		return fmt.Errorf("GetMongoClient failed: %v", err)
-	}
-	var counts TaskStatusCounts
-	genesis := time.Now()
 	unit := time.Minute
 	var isReport bool
 	for {
-		if counts, err = ws.CountAllStatus(client); err != nil {
+		counts, err := ws.CountAllStatus()
+		if err != nil {
 			return fmt.Errorf(`CountAllStatus failed: %v`, err)
 		}
 		if (counts.Added + counts.Processing) == 0 {
@@ -158,7 +153,7 @@ func Wait() error {
 		}
 		total := counts.Added + counts.Completed + counts.Failed + counts.Processing + counts.Splitting
 		percent := float64(counts.Completed) / float64(total)
-		elapsed := time.Since(genesis)
+		elapsed := time.Since(inst.genesis)
 		millis := elapsed.Hours() + elapsed.Minutes() + elapsed.Seconds() + float64(elapsed.Milliseconds())
 		remaining := time.Duration(time.Duration(millis*(1-percent)/percent) * time.Millisecond)
 		if isReport || remaining > unit || percent > .5 {
