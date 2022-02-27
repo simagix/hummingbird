@@ -199,7 +199,7 @@ func GetWriteModels(oplog Oplog) []OplogWriteModel {
 		for _, v := range oplog.Object {
 			if v.Key != "$v" && strings.HasPrefix(v.Key, "$") {
 				isUpdate = true
-				o = bson.D{{Key: v.Key, Value: v.Value}}
+				o = bson.D{{v.Key, v.Value}}
 				break
 			}
 		}

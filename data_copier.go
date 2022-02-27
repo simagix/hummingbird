@@ -5,7 +5,6 @@ package hummingbird
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -141,40 +140,39 @@ func getQualifiedCollections(uri string) ([]*Include, error) {
 func Wait() error {
 	inst := GetMigratorInstance()
 	ws := inst.Workspace()
-	logger := gox.GetLogger("Wait")
+	logger := gox.GetLogger()
 	client, err := GetMongoClient(inst.Target)
 	if err != nil {
 		return fmt.Errorf("GetMongoClient failed: %v", err)
 	}
 	var counts TaskStatusCounts
-	btime := time.Now()
-	if counts, err = ws.CountAllStatus(client); err != nil {
-		return fmt.Errorf(`CountAllStatus failed: %v`, err)
-	}
-	logger.Infof("added: %v, completed: %v, failed: %v, processing: %v, splitting: %v",
-		counts.Added, counts.Completed, counts.Failed, counts.Processing, counts.Splitting)
-	count := 0
+	genesis := time.Now()
+	unit := time.Minute
+	var isReport bool
 	for {
-		time.Sleep(30 * time.Second)
 		if counts, err = ws.CountAllStatus(client); err != nil {
 			return fmt.Errorf(`CountAllStatus failed: %v`, err)
-		}
-		if time.Since(btime) > 1*time.Minute {
-			log.Printf("added: %v, completed: %v, failed: %v, processing: %v, splitting: %v\n",
-				counts.Added, counts.Completed, counts.Failed, counts.Processing, counts.Splitting)
-			btime = time.Now()
-			count++
-			if _, err = ws.ResetLongRunningTasks(-10 * time.Minute); err != nil { // reset if a task already lasts 10 mins
-				return fmt.Errorf(`AuditLongRunningTasks failed: %v`, err)
-			}
-		}
-		if count > 60 {
-			count = 0
-			logger.Infof("added: %v, completed: %v, failed: %v, processing: %v, splitting: %v",
-				counts.Added, counts.Completed, counts.Failed, counts.Processing, counts.Splitting)
 		}
 		if (counts.Added + counts.Processing) == 0 {
 			return nil
 		}
+		total := counts.Added + counts.Completed + counts.Failed + counts.Processing + counts.Splitting
+		percent := float64(counts.Completed) / float64(total)
+		elapsed := time.Since(genesis)
+		millis := elapsed.Hours() + elapsed.Minutes() + elapsed.Seconds() + float64(elapsed.Milliseconds())
+		remaining := time.Duration(time.Duration(millis*(1-percent)/percent) * time.Millisecond)
+		if isReport || remaining > unit || percent > .5 {
+			isReport = true
+			eta := ""
+			if counts.Splitting == 0 {
+				eta = fmt.Sprintf(", %v (%.1f%%) to go", remaining.Truncate(time.Second), (1-percent)*100)
+			}
+			logger.Infof("added:%v, completed:%v, failed:%v, processing:%v, splitting:%v%v",
+				counts.Added, counts.Completed, counts.Failed, counts.Processing, counts.Splitting, eta)
+		}
+		if _, err = ws.ResetLongRunningTasks(-10 * time.Minute); err != nil { // reset if a task already lasts 10 mins
+			return fmt.Errorf(`ResetLongRunningTasks failed: %v`, err)
+		}
+		time.Sleep(unit)
 	}
 }

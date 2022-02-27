@@ -235,7 +235,7 @@ func (p *OplogStreamer) LiveStreamOplogs(cursor *mongo.Cursor) error {
 			}
 			if time.Since(last) > 10*time.Second {
 				last = time.Now()
-				log.Println(p.SetName, "lag 0")
+				logger.Infof("%v: lag 0", p.SetName)
 			}
 			time.Sleep(10 * time.Millisecond)
 			continue
@@ -250,13 +250,14 @@ func (p *OplogStreamer) LiveStreamOplogs(cursor *mongo.Cursor) error {
 		if len(oplogs) >= MaxBatchSize || time.Since(last) > 10*time.Second {
 			last = time.Now()
 			if len(oplogs) == 0 {
-				log.Println(p.SetName, "lag 0")
+				logger.Infof("%v: lag 0", p.SetName)
 				continue
 			}
 			if err = BulkWriteOplogs(oplogs); err != nil {
 				logger.Errorf("BulkWriteOplogs failed: %v", err)
 			}
-			log.Println(p.SetName, "lag", time.Since(time.Unix(int64(oplogs[len(oplogs)-1].Timestamp.T), 0)))
+			lag := time.Since(time.Unix(int64(oplogs[len(oplogs)-1].Timestamp.T), 0)).Truncate(time.Second)
+			logger.Infof("%v: lag %v", p.SetName, lag)
 			oplogs = nil
 		}
 	}

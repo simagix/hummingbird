@@ -94,9 +94,27 @@ func (ws *Workspace) CleanUpWorkspace() error {
 func (ws *Workspace) Reset() error {
 	var err error
 	if err = ws.DropMetaDB(); err != nil {
-		return fmt.Errorf("DropMetaDB: %v", err)
+		return fmt.Errorf("DropMetaDB failed: %v", err)
+	}
+	if err = ws.CreateTaskIndexes(); err != nil {
+		return fmt.Errorf("CreateTaskIndexes failed: %v", err)
 	}
 	return ws.CleanUpWorkspace()
+}
+
+// CreateTaskIndexes create indexes on tasks collection
+func (ws *Workspace) CreateTaskIndexes() error {
+	client, err := GetMongoClient(ws.dbURI)
+	if err != nil {
+		return fmt.Errorf("GetMongoClient failed: %v", err)
+	}
+	coll := client.Database(ws.dbName).Collection(Tasks)
+	indexView := coll.Indexes()
+	models := []mongo.IndexModel{}
+	models = append(models, mongo.IndexModel{Keys: bson.D{{"status", 1}, {"replica_set", 1}, {"_id", 1}}})
+	models = append(models, mongo.IndexModel{Keys: bson.D{{"replica_set", 1}, {"parent_id", 1}}})
+	_, err = indexView.CreateMany(context.Background(), models)
+	return err
 }
 
 // InsertTasks inserts tasks to database
