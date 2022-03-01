@@ -11,7 +11,7 @@ import (
 
 // Start starts a migration
 func Start(filename string, extra ...bool) error {
-	gox.GetLogger("Start").Remarkf("start a migration from %v", filename)
+	gox.GetLogger().Remarkf("start a migration from %v", filename)
 	var err error
 	var isConfig, isData, isOplog bool
 	inst, err := NewMigratorInstance(filename)
@@ -34,6 +34,8 @@ func Start(filename string, extra ...bool) error {
 		if inst.Command == CommandData {
 			isOplog = true
 		}
+	} else {
+		return fmt.Errorf("unsupported command %v", inst.Command)
 	}
 	wg := gox.NewWaitGroup(4)
 	if len(extra) == 0 {

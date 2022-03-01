@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /usr/bin/env bash
 # Copyright Kuei-chun Chen, 2022-present. All rights reserved.
 die() { echo "$*" 1>&2 ; exit 1; }
 VERSION="v$(cat version)"
@@ -18,4 +18,10 @@ if [[ "$1" == "docker" ]]; then
 else
   env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/neutrino-osx-x64 main/hummingbird.go
   env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/neutrino-linux-x64 main/hummingbird.go
+  ls -l ./dist
+  if [ "$(uname)" == "Darwin" ]; then
+    ./dist/neutrino-osx-x64 -version
+  elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+    ./dist/neutrino-linux-x64 -version
+  fi
 fi

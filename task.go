@@ -85,9 +85,7 @@ func (p *Task) batchedCopy(target *mongo.Collection, docs []interface{}) {
 	opts := options.InsertMany()
 	opts.SetOrdered(false)
 	result, err := target.InsertMany(ctx, docs, opts)
-	if result != nil && p.SourceCounts == len(result.InsertedIDs) {
-		p.Inserted += len(result.InsertedIDs)
-	} else if err != nil && (mdb.IsDuplicateKeyError(err) || mdb.GetErrorCode(err) == 16755) {
+	if err != nil && (mdb.IsDuplicateKeyError(err) || mdb.GetErrorCode(err) == 16755) {
 		var ids []interface{}
 		for _, raw := range docs {
 			var doc bson.M
@@ -101,5 +99,7 @@ func (p *Task) batchedCopy(target *mongo.Collection, docs []interface{}) {
 		} else {
 			fmt.Println("TODO")
 		}
+	} else if result != nil {
+		p.Inserted += len(result.InsertedIDs)
 	}
 }
