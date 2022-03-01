@@ -141,8 +141,6 @@ func Wait() error {
 	inst := GetMigratorInstance()
 	ws := inst.Workspace()
 	logger := gox.GetLogger()
-	unit := time.Minute
-	var isReport bool
 	for {
 		counts, err := ws.CountAllStatus()
 		if err != nil {
@@ -156,17 +154,20 @@ func Wait() error {
 		elapsed := time.Since(inst.genesis)
 		millis := elapsed.Hours() + elapsed.Minutes() + elapsed.Seconds() + float64(elapsed.Milliseconds())
 		remaining := time.Duration(time.Duration(millis*(1-percent)/percent) * time.Millisecond)
-		if isReport || remaining > unit || percent > .5 {
-			isReport = true
-			eta := ""
-			if counts.Splitting == 0 {
-				eta = fmt.Sprintf(", %v (%.1f%%) to go", remaining.Truncate(time.Second), (1-percent)*100)
-			}
-			logger.Infof("added:%v, completed:%v, failed:%v, processing:%v, splitting:%v%v",
-				counts.Added, counts.Completed, counts.Failed, counts.Processing, counts.Splitting, eta)
+
+		eta := ""
+		if counts.Splitting == 0 {
+			eta = fmt.Sprintf(", %v (%.1f%%) to go", remaining.Truncate(time.Second), (1-percent)*100)
 		}
+		logger.Infof("added:%v, completed:%v, failed:%v, processing:%v, splitting:%v%v",
+			counts.Added, counts.Completed, counts.Failed, counts.Processing, counts.Splitting, eta)
+
 		if _, err = ws.ResetLongRunningTasks(-10 * time.Minute); err != nil { // reset if a task already lasts 10 mins
 			return fmt.Errorf(`ResetLongRunningTasks failed: %v`, err)
+		}
+		unit := time.Minute
+		if counts.Added < 20 {
+			unit = 10 * time.Second
 		}
 		time.Sleep(unit)
 	}

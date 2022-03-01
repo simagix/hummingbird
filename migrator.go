@@ -56,6 +56,9 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 	if err = ValidateMigratorConfig(inst); err != nil {
 		return inst, err
 	}
+	if inst.Verbose {
+		gox.GetLogger().SetLoggerLevel(gox.Debug)
+	}
 	inst.genesis = time.Now()
 	// establish work space
 	os.Mkdir(inst.Staging, 0755)
@@ -74,7 +77,7 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 	// create includes map
 	inst.included = map[string]*Include{}
 	for _, include := range inst.Includes {
-		inst.Included()[include.Namespace] = include
+		inst.included[include.Namespace] = include
 	}
 	// set uri map
 	inst.replicas = map[string]string{}

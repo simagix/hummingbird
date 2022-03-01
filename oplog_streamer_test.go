@@ -4,7 +4,6 @@ package hummingbird
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -27,7 +26,6 @@ func TestCacheOplogs(t *testing.T) {
 	replset := "replset"
 	streamer := OplogStreamer{SetName: replset, Staging: "./workspace",
 		URI: TestReplicaURI, isCache: true}
-	streamer.filename = fmt.Sprintf("%v/%v%v", streamer.Staging, replset, CacheIndexFileExt)
 	go func() {
 		err := streamer.CacheOplogs()
 		assertEqual(t, nil, err)

@@ -6,7 +6,6 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -31,33 +30,22 @@ func TestCleanUpWorkspace(t *testing.T) {
 	assertNotEqual(t, nil, err)
 
 	os.Mkdir(DefaultStaging, 0755)
-	filename := DefaultStaging + "/replset.index"
 	filenames := []string{DefaultStaging + "/file1.bson.gz", DefaultStaging + "/file2.bson.gz"}
-	err = ioutil.WriteFile(filename, []byte(strings.Join(filenames, "\n")), 0644)
-	assertEqual(t, true, DoesFileExist(filename))
-	assertEqual(t, nil, err)
 	ws = &Workspace{staging: DefaultStaging}
-	err = ws.CleanUpWorkspace()
-	assertNotEqual(t, nil, err)
 
 	for _, f := range filenames {
 		err = ioutil.WriteFile(f, []byte(f), 0644)
 		assertEqual(t, nil, err)
 		assertEqual(t, true, DoesFileExist(f))
 	}
-	err = ioutil.WriteFile(filename, []byte(strings.Join(filenames, "\n")), 0644)
-	assertEqual(t, true, DoesFileExist(filename))
-	assertEqual(t, nil, err)
 	ws = &Workspace{staging: DefaultStaging}
 	err = ws.CleanUpWorkspace()
 	assertEqual(t, nil, err)
 
-	assertEqual(t, false, DoesFileExist(filename))
 	for _, f := range filenames {
 		assertEqual(t, false, DoesFileExist(f))
 		os.Remove(f)
 	}
-	os.Remove(filename)
 }
 
 func TestReset(t *testing.T) {

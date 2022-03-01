@@ -40,6 +40,7 @@ const (
 // Neutrino routes to a command
 func Neutrino(version string) error {
 	resume := flag.String("resume", "", "resume a migration from a configuration file")
+	sim := flag.String("sim", "", "simulate data gen")
 	start := flag.String("start", "", "start a migration from a configuration file")
 	ver := flag.Bool("version", false, "print version info")
 
@@ -52,7 +53,9 @@ func Neutrino(version string) error {
 		return nil
 	}
 	logger := gox.GetLogger(version, false) // print version and disable in-mem logs
-	if *start != "" {
+	if *sim != "" {
+		return Simulate(*sim)
+	} else if *start != "" {
 		return Start(*start)
 	} else if *resume != "" {
 		return Resume(*resume)

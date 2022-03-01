@@ -28,15 +28,13 @@ func TestBSONReader(t *testing.T) {
 	reader, err = NewBSONReader(TestOplogFile)
 	assertEqual(t, nil, err)
 	cnt := 0
-	for {
-		if reader.Next() == nil {
-			break
-		}
+	for reader.Next() != nil {
 		cnt++
 	}
 	if cnt == 0 {
 		t.Fatal("not able to read data from:", TestOplogFile)
 	}
+
 }
 
 func TestBSONReaderFile(t *testing.T) {

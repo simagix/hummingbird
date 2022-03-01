@@ -3,20 +3,18 @@
 package hummingbird
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/mdb"
 )
 
@@ -61,28 +59,12 @@ func (ws *Workspace) CleanUpWorkspace() error {
 		if err != nil {
 			return err
 		}
-		if filepath.Ext(d.Name()) == CacheIndexFileExt {
+		if strings.HasSuffix(d.Name(), GZippedBSONFileExt) {
 			filenames = append(filenames, s)
 		}
 		return nil
 	})
 	for _, filename := range filenames {
-		var reader *bufio.Reader
-		if reader, err = gox.NewFileReader(filename); err != nil {
-			if err == io.EOF {
-				continue
-			}
-			return fmt.Errorf("NewFileReader %v failed: %v", filename, err)
-		}
-		for {
-			var buf []byte
-			if buf, _, err = reader.ReadLine(); err != nil { // 0x0A separator = newline
-				break
-			}
-			if err = os.Remove(string(buf)); err != nil {
-				return fmt.Errorf("os.Remove failed: %v", err)
-			}
-		}
 		if err = os.Remove(filename); err != nil {
 			return fmt.Errorf("os.Remove failed: %v", err)
 		}

@@ -45,12 +45,10 @@ func CollectionCreator() error {
 				continue
 			}
 			ns := fmt.Sprintf(`%v.%v`, dbName, collName)
-			if inst.Included()[ns] != nil && inst.Included()[ns].To != "" {
-				dbName, collName = mdb.SplitNamespace(inst.Included()[ns].To)
-				ns = fmt.Sprintf(`%v.%v`, dbName, collName)
-			} else if inst.SkipNamespace(ns) {
+			if inst.SkipNamespace(ns) {
 				continue
 			}
+			dbTo, collTo := mdb.SplitNamespace(inst.GetToNamespace(ns))
 			var collation *options.Collation
 			var collOpts = options.CreateCollection()
 			if doc["options"] != nil {
@@ -70,7 +68,7 @@ func CollectionCreator() error {
 					collOpts.SetMaxDocuments(ToInt64(m["max"]))
 				}
 			}
-			if err = targetClient.Database(dbName).CreateCollection(ctx, collName, collOpts); err != nil {
+			if err = targetClient.Database(dbTo).CreateCollection(ctx, collTo, collOpts); err != nil {
 				logger.Errorf(`%v, error code: %v`, err, mdb.GetErrorCode(err))
 				return err
 			}

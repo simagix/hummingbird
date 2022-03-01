@@ -5,11 +5,12 @@
   "target": "mongodb://user:password@localhost:37017/?compressors=zstd&readPreference=secondaryPreferred",
   "includes": [
     { "namespace": "Documents.*"},
-    { "namespace": "neptune.*"},
+    { "namespace": "testdb.*"},
     { "namespace": "keyhole.numbers", "to": "testdb.counts"},
-    { "namespace": "blank.favorites", "filter": {"ts": {"$gt":{"$date": "2021-09-23T10:20:00.266Z"}}}, "limit": 1024 },
+    { "namespace": "template.favorites", "filter": {"ts": {"$gt":{"$date": "2021-09-23T10:20:00.266Z"}}}, "limit": 1024 },
     { "namespace": "keyhole.vehicles", "filter": { "color": { "$in": [ "Black", "White" ] }}, "limit": 1024 }
   ],
+  "verbose": false,
   "yes": true,
   "license": "Apache-2.0"
 }
