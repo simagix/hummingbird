@@ -1,5 +1,5 @@
 {
-  "namesapces": ["testdb.hummingbird", "testdb.neutrino"],
+  "namespaces": ["testdb.hummingbird", "testdb.neutrino"],
   "seconds_to_run": 300,
   "tps": 600,
   "threads": {
