@@ -78,8 +78,6 @@ func TestBSONReaderNext(t *testing.T) {
 		oplogs = append(oplogs, Oplog{Namespace: TestNS, Operation: "i", Object: doc})
 	}
 	cursor.Close(ctx)
-	err = WriteCachedOplogs(oplogs, filename)
-	assertEqual(t, nil, err)
 
 	reader, err := NewBSONReader(filename)
 	assertEqual(t, nil, err)

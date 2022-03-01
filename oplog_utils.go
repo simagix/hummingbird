@@ -196,7 +196,7 @@ func BulkWriteOplogs(oplogs []Oplog) (*BulkWriteOplogsResult, error) {
 	}
 	results.TotalCount = results.InsertedCount + results.ModifiedCount + results.DeletedCount + results.UpsertedCount
 	if int(results.TotalCount) < len(oplogs) {
-		logger.Infof("oplogs:%v, missed:%v, inserted:%v, modified:%v, deleted:%v, upserted:%v",
+		logger.Debugf("oplogs:%v, missed:%v, inserted:%v, modified:%v, deleted:%v, upserted:%v",
 			len(oplogs), missed,
 			results.InsertedCount, results.ModifiedCount, results.DeletedCount, results.UpsertedCount)
 	}

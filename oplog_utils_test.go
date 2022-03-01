@@ -10,30 +10,31 @@ import (
 
 	"github.com/simagix/gox"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func TestSkipOplog(t *testing.T) {
-	_, err := NewMigratorInstance("testdata/minimum.json")
+	filename := "testdata/config.json"
+	inst, err := NewMigratorInstance(filename)
 	assertEqual(t, nil, err)
-	oplogs, err := ReadCachedOplogs(TestOplogFile)
+	includes := []*Include{&Include{Namespace: "keyhole.*"}}
+	inst.ResetIncludesTo(includes)
+	reader, err := NewBSONReader(TestOplogFile)
 	assertEqual(t, nil, err)
-	assertNotEqual(t, 0, len(oplogs))
-	for _, oplog := range oplogs {
-		assertEqual(t, false, SkipOplog(oplog))
-		docs, ok := oplog.Object.Map()["applyOps"].(primitive.A)
-		if ok {
-			for _, doc := range docs {
-				data, err := bson.Marshal(doc)
-				assertEqual(t, nil, err)
-				var alog Oplog
-				bson.Unmarshal(data, &alog)
-				assertEqual(t, false, SkipOplog(alog))
-			}
-			assertEqual(t, "c", oplog.Operation)
-			assertEqual(t, "admin.$cmd", oplog.Namespace)
+	var data []byte
+	total := 0
+	for {
+		if data = reader.Next(); data == nil || total > 100 {
+			break
 		}
+		var oplog Oplog
+		bson.Unmarshal(data, &oplog)
+		dbName, _ := mdb.SplitNamespace(oplog.Namespace)
+		if dbName != "keyhole" {
+			continue
+		}
+		total++
+		assertEqual(t, false, SkipOplog(oplog))
 	}
 }
 

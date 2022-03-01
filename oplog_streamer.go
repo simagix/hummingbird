@@ -38,6 +38,7 @@ type OplogStreamer struct {
 	Staging string
 	URI     string
 
+	cached  string
 	isCache bool
 	mutex   sync.Mutex
 	ts      *primitive.Timestamp
@@ -85,7 +86,15 @@ func (p *OplogStreamer) IsCache() bool {
 // LiveStream begin applying oplogs to target
 func (p *OplogStreamer) LiveStream() {
 	go func() {
-		p.ApplyCachedOplogs()
+		for {
+			var err error
+			if p.cached, err = p.ApplyCachedOplogs(); err != nil {
+				log.Fatalf("ApplyCachedOplogs failed: %v", err)
+			}
+			if p.cached == "" {
+				break
+			}
+		}
 		p.mutex.Lock()
 		p.isCache = false
 		p.mutex.Unlock()
@@ -160,7 +169,7 @@ func (p *OplogStreamer) CacheOplogs() error {
 			}
 		}
 		lag := time.Since(time.Unix(int64(op.Timestamp.T), 0)).Truncate(time.Second)
-		logger.Infof("%v: lag %v, %v processed", p.SetName, lag, processed)
+		logger.Infof("%v lag %v, %v processed", p.SetName, lag, processed)
 		p.ts = &oplogs[len(oplogs)-1].Timestamp
 	}
 	if err = p.LiveStreamOplogs(p.ts); err != nil {
@@ -170,7 +179,7 @@ func (p *OplogStreamer) CacheOplogs() error {
 }
 
 // ApplyCachedOplogs applies cached oplogs to target
-func (p *OplogStreamer) ApplyCachedOplogs() error {
+func (p *OplogStreamer) ApplyCachedOplogs() (string, error) {
 	inst := GetMigratorInstance()
 	logger := gox.GetLogger("CacheOplogs")
 	filenames := []string{}
@@ -179,19 +188,24 @@ func (p *OplogStreamer) ApplyCachedOplogs() error {
 			return err
 		}
 		if strings.HasPrefix(d.Name(), p.SetName) && strings.HasSuffix(d.Name(), GZippedBSONFileExt) {
-			filenames = append(filenames, s)
+			if s > p.cached {
+				filenames = append(filenames, s)
+			}
 		}
 		return nil
 	})
+	if len(filenames) == 0 {
+		return "", nil
+	}
 	logger.Infof("%v has %v file(s)", p.SetName, len(filenames))
 	sort.Slice(filenames, func(i int, j int) bool {
 		return filenames[i] < filenames[j]
 	})
-	for _, infile := range filenames {
-		logger.Infof("%v apply oplogs from %v", p.SetName, infile)
-		breader, err := NewBSONReader(infile)
+	for _, filename := range filenames {
+		logger.Infof("%v apply oplogs from %v", p.SetName, filename)
+		breader, err := NewBSONReader(filename)
 		if err != nil {
-			return fmt.Errorf("read %v failed", err)
+			return filename, fmt.Errorf("read %v failed", err)
 		}
 		var oplogs []Oplog
 		var op *Oplog
@@ -219,11 +233,11 @@ func (p *OplogStreamer) ApplyCachedOplogs() error {
 			}
 		}
 		lag := time.Since(time.Unix(int64(op.Timestamp.T), 0)).Truncate(time.Second)
-		logger.Infof("%v: lag %v, %v processed", p.SetName, lag, processed)
+		logger.Infof("%v lag %v, %v processed", p.SetName, lag, processed)
 		p.ts = &oplogs[len(oplogs)-1].Timestamp
 		time.Sleep(50 * time.Millisecond) // yield
 	}
-	return nil
+	return filenames[len(filenames)-1], nil
 }
 
 // LiveStreamOplogs stream and apply oplogs
@@ -249,7 +263,7 @@ func (p *OplogStreamer) LiveStreamOplogs(ts *primitive.Timestamp) error {
 			}
 			if time.Since(last) > 10*time.Second {
 				last = time.Now()
-				logger.Infof("%v: lag 0s", p.SetName)
+				logger.Infof("%v lag 0s", p.SetName)
 			}
 			time.Sleep(1 * time.Millisecond)
 			continue
@@ -264,7 +278,7 @@ func (p *OplogStreamer) LiveStreamOplogs(ts *primitive.Timestamp) error {
 		if len(oplogs) >= MaxBatchSize || time.Since(last) > 10*time.Second {
 			last = time.Now()
 			if len(oplogs) == 0 {
-				logger.Infof("%v: lag 0s", p.SetName)
+				logger.Infof("%v lag 0s", p.SetName)
 				continue
 			}
 			if _, err := BulkWriteOplogs(oplogs); err != nil {
