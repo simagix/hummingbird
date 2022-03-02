@@ -39,6 +39,7 @@ const (
 
 // Neutrino routes to a command
 func Neutrino(version string) error {
+	compare := flag.String("compare", "", "deep two clusters")
 	resume := flag.String("resume", "", "resume a migration from a configuration file")
 	sim := flag.String("sim", "", "simulate data gen")
 	start := flag.String("start", "", "start a migration from a configuration file")
@@ -53,12 +54,14 @@ func Neutrino(version string) error {
 		return nil
 	}
 	logger := gox.GetLogger(version, false) // print version and disable in-mem logs
-	if *sim != "" {
+	if *compare != "" {
+		return Compare(*compare)
+	} else if *resume != "" {
+		return Resume(*resume)
+	} else if *sim != "" {
 		return Simulate(*sim)
 	} else if *start != "" {
 		return Start(*start)
-	} else if *resume != "" {
-		return Resume(*resume)
 	}
 	logger.Info(version)
 	return nil
