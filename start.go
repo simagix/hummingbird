@@ -11,12 +11,20 @@ import (
 
 // Start starts a migration
 func Start(filename string, extra ...bool) error {
-	gox.GetLogger().Remarkf("start a migration from %v", filename)
 	var err error
 	var isConfig, isData, isOplog bool
+	logger := gox.GetLogger()
 	inst, err := NewMigratorInstance(filename)
 	if err != nil {
 		return fmt.Errorf("NewMigratorInstance failed: %v", err)
+	}
+	ws := inst.Workspace()
+	ws.Reset()
+	ws.LogConfig()
+	status := fmt.Sprintf("start a migration from %v", filename)
+	logger.Remark(status)
+	if err = ws.Log(status); err != nil {
+		return fmt.Errorf("update status failed: %v", err)
 	}
 	if inst.Command == CommandIndex {
 		return IndexCopier()
@@ -68,7 +76,6 @@ func Start(filename string, extra ...bool) error {
 		}
 	}
 	if isData {
-		GetMigratorInstance().workspace.Reset() // reset meta data and clean up staging
 		if err = DataCopier(); err != nil {
 			return fmt.Errorf("DataCopier failed: %v", err)
 		}

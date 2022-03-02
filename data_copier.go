@@ -17,10 +17,6 @@ import (
 )
 
 const (
-	// None is an empty string
-	None = ""
-	// Tasks tasks
-	Tasks = "tasks"
 	// TaskAdded added
 	TaskAdded = "added"
 	// TaskCompleted completed
@@ -44,12 +40,17 @@ type TaskStatusCounts struct {
 
 // DataCopier copies data from source to target
 func DataCopier() error {
-	var err error
 	now := time.Now()
 	ctx := context.Background()
 	logger := gox.GetLogger("DataCopier")
 	inst := GetMigratorInstance()
-	logger.Remark("copy data")
+	ws := inst.Workspace()
+	status := "copy data"
+	logger.Remark(status)
+	err := ws.Log(status)
+	if err != nil {
+		return fmt.Errorf("update status failed: %v", err)
+	}
 	// all qualified collections
 	var includes []*Include
 	if len(inst.Included()) > 0 {
@@ -103,7 +104,6 @@ func DataCopier() error {
 			tasks = append(tasks, task)
 		}
 	}
-	ws := inst.Workspace()
 	ws.InsertTasks(tasks)
 	for i := 0; i < inst.Workers; i++ { // start all workers
 		go Worker(i + 1)

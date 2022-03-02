@@ -59,12 +59,19 @@ type Oplog struct {
 // OplogStreamers copies oplogs from source to target
 func OplogStreamers() error {
 	logger := gox.GetLogger("OplogStreamer")
-	logger.Remark("stream oplogs")
 	inst := GetMigratorInstance()
+	ws := inst.Workspace()
+	status := "stream oplogs"
+	logger.Remark(status)
+	err := ws.Log(status)
+	if err != nil {
+		return fmt.Errorf("update status failed: %v", err)
+	}
 	for setName, replica := range inst.Replicas() {
 		logger.Infof("stream %v (%v)", setName, RedactedURI(replica))
 		streamer := OplogStreamer{SetName: setName, Staging: inst.Workspace().staging,
 			URI: replica, isCache: true}
+		streamer.ts = ws.GetOplogTimestamp(setName)
 		go func() {
 			err := streamer.CacheOplogs()
 			if err != nil {
@@ -103,10 +110,17 @@ func (p *OplogStreamer) LiveStream() {
 
 // CacheOplogs store oplogs in files
 func (p *OplogStreamer) CacheOplogs() error {
-	logger := gox.GetLogger("CacheOplogs")
-	logger.Infof("cache oplog from %v", p.SetName)
+	inst := GetMigratorInstance()
+	ws := inst.Workspace()
+	logger := gox.GetLogger()
+	status := fmt.Sprintf("%v cache oplog", p.SetName)
+	logger.Remark(status)
+	ws.Log(status)
 	os.Mkdir(p.Staging, 0755)
-	p.ts = &primitive.Timestamp{T: uint32(time.Now().Unix())}
+	if p.ts == nil {
+		p.ts = &primitive.Timestamp{T: uint32(time.Now().Unix())}
+		ws.SaveOplogTimestamp(p.SetName, *p.ts)
+	}
 	client, err := GetMongoClient(p.URI)
 	if err != nil {
 		return fmt.Errorf("GetMongoClient failed: %v", err)
@@ -134,6 +148,11 @@ func (p *OplogStreamer) CacheOplogs() error {
 			ofile := fmt.Sprintf(`%v/%v.%v.bson.gz`, p.Staging, p.SetName, GetDateTime())
 			if err = gox.OutputGzipped(raws, ofile); err != nil {
 				return fmt.Errorf("OutputGzipped %v failed: %v", ofile, err)
+			}
+			var last Oplog
+			bson.Unmarshal(cursor.Current, &last)
+			if err = ws.SaveOplogTimestamp(p.SetName, last.Timestamp); err != nil {
+				return fmt.Errorf("RecordOplogTimestamp failed: %v", err)
 			}
 			raws = nil
 		}
@@ -170,7 +189,10 @@ func (p *OplogStreamer) CacheOplogs() error {
 		}
 		lag := time.Since(time.Unix(int64(op.Timestamp.T), 0)).Truncate(time.Second)
 		logger.Infof("%v lag %v, %v processed", p.SetName, lag, processed)
-		p.ts = &oplogs[len(oplogs)-1].Timestamp
+		p.ts = &op.Timestamp
+		if err = ws.SaveOplogTimestamp(p.SetName, op.Timestamp); err != nil {
+			return fmt.Errorf("RecordOplogTimestamp failed: %v", err)
+		}
 	}
 	if err = p.LiveStreamOplogs(p.ts); err != nil {
 		return fmt.Errorf("oplogs live streaming failed: %v", err)
@@ -181,9 +203,14 @@ func (p *OplogStreamer) CacheOplogs() error {
 // ApplyCachedOplogs applies cached oplogs to target
 func (p *OplogStreamer) ApplyCachedOplogs() (string, error) {
 	inst := GetMigratorInstance()
-	logger := gox.GetLogger("CacheOplogs")
+	logger := gox.GetLogger()
+	ws := inst.Workspace()
+	status := fmt.Sprintf("%v apply cached oplogs", p.SetName)
+	logger.Remark(status)
+	ws.Log(status)
 	filenames := []string{}
 	filepath.WalkDir(inst.Workspace().staging, func(s string, d fs.DirEntry, err error) error {
+		// filepath.WalkDir(ws.staging, func(s string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -242,9 +269,13 @@ func (p *OplogStreamer) ApplyCachedOplogs() (string, error) {
 
 // LiveStreamOplogs stream and apply oplogs
 func (p *OplogStreamer) LiveStreamOplogs(ts *primitive.Timestamp) error {
-	logger := gox.GetLogger("LiveStreamOplogs")
 	ctx := context.Background()
-	logger.Infof("%v live stream oplogs", p.SetName)
+	inst := GetMigratorInstance()
+	ws := inst.Workspace()
+	logger := gox.GetLogger()
+	status := fmt.Sprintf("%v live stream oplogs", p.SetName)
+	logger.Remark(status)
+	ws.Log(status)
 	client, err := GetMongoClient(p.URI)
 	if err != nil {
 		return fmt.Errorf("GetMongoClient failed: %v", err)

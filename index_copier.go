@@ -3,6 +3,7 @@
 package hummingbird
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/simagix/gox"
@@ -13,11 +14,22 @@ import (
 func IndexCopier() error {
 	now := time.Now()
 	logger := gox.GetLogger("IndexCopier")
-	logger.Remark("copy indexes")
-	var err error
 	inst := GetMigratorInstance()
+	ws := inst.Workspace()
+	status := "copy indexes"
+	logger.Remark(status)
+	err := ws.Log(status)
+	if err != nil {
+		return fmt.Errorf("update status failed: %v", err)
+	}
 	sourceClient, err := GetMongoClient(inst.Source)
+	if err != nil {
+		return fmt.Errorf("GetMongoClient failed: %v", err)
+	}
 	targetClient, err := GetMongoClient(inst.Target)
+	if err != nil {
+		return fmt.Errorf("GetMongoClient failed: %v", err)
+	}
 	logger.Info("create indexes")
 	index := mdb.NewIndexStats("")
 	index.SetFastMode(true) // disable shard key check

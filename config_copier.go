@@ -43,9 +43,14 @@ func ConfigCopier() error {
 	now := time.Now()
 	logger := gox.GetLogger("ConfigCopier")
 	inst := GetMigratorInstance()
-	logger.Remark("copy configurations")
-	err := DoesDataExist()
+	ws := inst.Workspace()
+	status := "copy configurations"
+	logger.Remark(status)
+	err := ws.Log(status)
 	if err != nil {
+		return fmt.Errorf("update status failed: %v", err)
+	}
+	if err = DoesDataExist(); err != nil {
 		return err
 	}
 	if err = CollectionCreator(); err != nil {
@@ -55,8 +60,12 @@ func ConfigCopier() error {
 		return err
 	}
 	if inst.SourceStats().Cluster != mdb.Sharded || inst.TargetStats().Cluster != mdb.Sharded {
-		logger.Remarkf("configurations copied, took %v, source is %v and target is %v",
+		status = fmt.Sprintf("configurations copied, took %v, source is %v and target is %v",
 			time.Since(now), inst.SourceStats().Cluster, inst.TargetStats().Cluster)
+		logger.Remark(status)
+		if err = ws.Log(status); err != nil {
+			return fmt.Errorf("update status failed: %v", err)
+		}
 		return nil
 	}
 

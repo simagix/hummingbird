@@ -9,6 +9,6 @@ func TestResume(t *testing.T) {
 	err := Resume("none-exists")
 	assertNotEqual(t, nil, err)
 
-	err = Resume(filename)
+	err = Resume(filename, true)
 	assertEqual(t, nil, err)
 }

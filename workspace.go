@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -21,12 +23,12 @@ import (
 const (
 	// MetaDBName defines default meta database name
 	MetaDBName = "_neutrino"
-	// MetaLogCollection defines default meta oplogs collection name
-	MetaLogCollection = "logs"
-	// MetaOplogCollection defines default meta oplogs collection name
-	MetaOplogCollection = "oplogs"
-	// MetaTaskCollection defines default meta tasks collection name
-	MetaTaskCollection = "tasks"
+	// MetaLogs defines default meta oplogs collection name
+	MetaLogs = "logs"
+	// MetaOplogs defines default meta oplogs collection name
+	MetaOplogs = "oplogs"
+	// MetaTasks defines default meta tasks collection name
+	MetaTasks = "tasks"
 )
 
 // Workspace stores meta database
@@ -84,18 +86,49 @@ func (ws *Workspace) Reset() error {
 	return ws.CleanUpWorkspace()
 }
 
+// LogConfig records configs
+func (ws *Workspace) LogConfig() error {
+	inst := GetMigratorInstance()
+	ws.Log(fullVersion)
+	ws.Log("from " + RedactedURI(inst.Source))
+	client, err := GetMongoClient(inst.Source)
+	if err != nil {
+		return fmt.Errorf("GetMongoClient failed: %v", err)
+	}
+	ws.Log("from " + inst.sourceStats.GetClusterShortSummary(client))
+
+	ws.Log("to " + RedactedURI(inst.Target))
+	client, err = GetMongoClient(inst.Target)
+	if err != nil {
+		return fmt.Errorf("GetMongoClient failed: %v", err)
+	}
+	ws.Log("to " + inst.targetStats.GetClusterShortSummary(client))
+	return nil
+}
+
 // CreateTaskIndexes create indexes on tasks collection
 func (ws *Workspace) CreateTaskIndexes() error {
 	client, err := GetMongoClient(ws.dbURI)
 	if err != nil {
 		return fmt.Errorf("GetMongoClient failed: %v", err)
 	}
-	coll := client.Database(ws.dbName).Collection(Tasks)
+	coll := client.Database(ws.dbName).Collection(MetaTasks)
 	indexView := coll.Indexes()
 	models := []mongo.IndexModel{}
 	models = append(models, mongo.IndexModel{Keys: bson.D{{"status", 1}, {"replica_set", 1}, {"_id", 1}}})
 	models = append(models, mongo.IndexModel{Keys: bson.D{{"replica_set", 1}, {"parent_id", 1}}})
 	_, err = indexView.CreateMany(context.Background(), models)
+	return err
+}
+
+// Log adds a status to status collection
+func (ws *Workspace) Log(status string) error {
+	client, err := GetMongoClient(ws.dbURI)
+	if err != nil {
+		return fmt.Errorf("GetMongoClient failed: %v", err)
+	}
+	doc := bson.M{"_id": time.Now(), "status": status}
+	_, err = client.Database(MetaDBName).Collection(MetaLogs).InsertOne(context.Background(), doc)
 	return err
 }
 
@@ -117,8 +150,8 @@ func (ws *Workspace) InsertTasks(tasks []*Task) error {
 		}
 		docs = append(docs, doc)
 	}
-	client.Database(MetaDBName).Collection(Tasks).InsertMany(context.Background(), docs)
-	return nil
+	_, err = client.Database(MetaDBName).Collection(MetaTasks).InsertMany(context.Background(), docs)
+	return err
 }
 
 // UpdateTask updates task
@@ -129,7 +162,7 @@ func (ws *Workspace) UpdateTask(task *Task) error {
 	}
 	var ctx = context.Background()
 	var result *mongo.UpdateResult
-	coll := client.Database(MetaDBName).Collection(Tasks)
+	coll := client.Database(MetaDBName).Collection(MetaTasks)
 	doc := bson.M{"status": task.Status, "source_counts": task.SourceCounts,
 		"begin_time": task.BeginTime, "end_time": task.EndTime, "updated_by": task.UpdatedBy}
 	if task.Status == TaskCompleted {
@@ -166,7 +199,7 @@ func (ws *Workspace) FindNextTaskAndUpdate(replset string, updatedBy string, rev
 	if replset == "" {
 		filter = bson.D{{"status", TaskAdded}}
 	}
-	coll := client.Database(MetaDBName).Collection(Tasks)
+	coll := client.Database(MetaDBName).Collection(MetaTasks)
 	opts := options.FindOneAndUpdate()
 	opts.SetReturnDocument(options.After)
 	opts.SetSort(bson.D{{"replica_set", 1}, {"parent_id", rev}})
@@ -195,7 +228,7 @@ func (ws *Workspace) CountAllStatus() (TaskStatusCounts, error) {
 			}
 		}
 	]`
-	coll := client.Database(MetaDBName).Collection(Tasks)
+	coll := client.Database(MetaDBName).Collection(MetaTasks)
 	optsAgg := options.Aggregate().SetAllowDiskUse(true)
 	var cursor *mongo.Cursor
 	if cursor, err = coll.Aggregate(ctx, mdb.MongoPipeline(pipeline), optsAgg); err != nil {
@@ -232,9 +265,101 @@ func (ws *Workspace) ResetLongRunningTasks(ago time.Duration) (int, error) {
 		return 0, fmt.Errorf("invlidate past time %v, should be negative", ago)
 	}
 	ctx := context.Background()
-	coll := client.Database(MetaDBName).Collection(Tasks)
+	coll := client.Database(MetaDBName).Collection(MetaTasks)
 	updates := bson.M{"$set": bson.M{"status": TaskAdded, "begin_time": time.Time{}, "updated_by": "maid"}}
 	filter := bson.D{{"status", TaskProcessing}, {"begin_time", bson.M{"$lt": time.Now().Add(ago)}}}
 	result, err := coll.UpdateMany(ctx, filter, updates)
 	return int(result.ModifiedCount), err
+}
+
+// SaveOplogTimestamp updates timestamp of a shard/replica
+func (ws *Workspace) SaveOplogTimestamp(setName string, ts primitive.Timestamp) error {
+	client, err := GetMongoClient(ws.dbURI)
+	if err != nil {
+		return fmt.Errorf("GetMongoClient failed: %v", err)
+	}
+	filter := bson.M{"_id": setName}
+	update := bson.M{"$set": bson.M{"ts": ts}}
+	opts := options.Update()
+	opts.SetUpsert(true)
+	coll := client.Database(MetaDBName).Collection(MetaOplogs)
+	_, err = coll.UpdateOne(context.Background(), filter, update, opts)
+	return err
+}
+
+// GetOplogTimestamp returns timestamp of a shard/replica
+func (ws *Workspace) GetOplogTimestamp(setName string) *primitive.Timestamp {
+	client, err := GetMongoClient(ws.dbURI)
+	if err != nil {
+		return nil
+	}
+	filter := bson.M{"_id": setName}
+	coll := client.Database(MetaDBName).Collection(MetaOplogs)
+	var doc bson.M
+	opts := options.FindOne()
+	opts.SetProjection(bson.M{"ts": 1, "_id": 0})
+	if err = coll.FindOne(context.Background(), filter).Decode(&doc); err != nil {
+		return nil
+	}
+	ts, ok := doc["ts"].(primitive.Timestamp)
+	if ok {
+		return &ts
+	}
+	return nil
+}
+
+// FindAllParentTasks returns task by replica a set name
+func (ws *Workspace) FindAllParentTasks() ([]*Task, error) {
+	client, err := GetMongoClient(ws.dbURI)
+	if err != nil {
+		return nil, fmt.Errorf("GetMongoClient failed: %v", err)
+	}
+	ctx := context.Background()
+	var tasks = []*Task{}
+	filter := bson.D{{"parent_id", nil}}
+	coll := client.Database(MetaDBName).Collection(MetaTasks)
+	cursor, err := coll.Find(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("find %v failed: %v", filter, err)
+	}
+	for cursor.Next(ctx) {
+		var task Task
+		bson.Unmarshal(cursor.Current, &task)
+		tasks = append(tasks, &task)
+	}
+	return tasks, nil
+}
+
+// ResetParentTask resets and deletes all child tasks
+func (ws *Workspace) ResetParentTask(task Task) error {
+	client, err := GetMongoClient(ws.dbURI)
+	if err != nil {
+		return fmt.Errorf("GetMongoClient failed: %v", err)
+	}
+	ctx := context.Background()
+	coll := client.Database(MetaDBName).Collection(MetaTasks)
+	_, err = coll.UpdateOne(ctx, bson.M{"_id": task.ID}, bson.M{"$set": bson.M{"status": TaskAdded}})
+	if err != nil {
+		return fmt.Errorf("UpdateOne failed: %v", err)
+	}
+	_, err = coll.DeleteMany(ctx, bson.M{"parent_id": task.ID})
+	if err != nil {
+		return fmt.Errorf("DeleteMany failed: %v", err)
+	}
+	return nil
+}
+
+// ResetProcessingTasks resets processing status to added
+func (ws *Workspace) ResetProcessingTasks() error {
+	client, err := GetMongoClient(ws.dbURI)
+	if err != nil {
+		return fmt.Errorf("GetMongoClient failed: %v", err)
+	}
+	ctx := context.Background()
+	coll := client.Database(MetaDBName).Collection(MetaTasks)
+	_, err = coll.UpdateMany(ctx, bson.M{"status": TaskProcessing}, bson.M{"$set": bson.M{"status": TaskAdded}})
+	if err != nil {
+		return fmt.Errorf("UpdateMany failed: %v", err)
+	}
+	return nil
 }

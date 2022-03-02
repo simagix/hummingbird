@@ -19,10 +19,15 @@ import (
 func CollectionCreator() error {
 	now := time.Now()
 	logger := gox.GetLogger("CollectionCreator")
-	logger.Remark("create collections")
-	var err error
 	ctx := context.Background()
 	inst := GetMigratorInstance()
+	ws := inst.Workspace()
+	status := "create collections"
+	logger.Remark(status)
+	err := ws.Log(status)
+	if err != nil {
+		return fmt.Errorf("update status failed: %v", err)
+	}
 	sourceClient, err := GetMongoClient(inst.Source)
 	targetClient, err := GetMongoClient(inst.Target)
 	var dbNames []string

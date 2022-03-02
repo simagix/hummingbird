@@ -66,7 +66,7 @@ func TestResetLongRunningTasks(t *testing.T) {
 	ctx := context.Background()
 	client, err := GetMongoClient(TestReplicaURI)
 	assertEqual(t, nil, err)
-	coll := client.Database(MetaDBName).Collection(Tasks)
+	coll := client.Database(MetaDBName).Collection(MetaTasks)
 	coll.Drop(ctx)
 	filter := bson.D{{"_id", primitive.NewObjectID()}}
 	update := bson.D{{"$set", bson.D{{"status", TaskProcessing}, {"begin_time", time.Now()}}}}
@@ -88,4 +88,82 @@ func TestResetLongRunningTasks(t *testing.T) {
 	modified, err = ws.ResetLongRunningTasks(-10 * time.Minute)
 	assertEqual(t, nil, err)
 	assertEqual(t, 1, modified)
+}
+
+func TestGetOplogTimestamp(t *testing.T) {
+	ws := &Workspace{dbName: MetaDBName, dbURI: TestReplicaURI}
+	replset := "replset"
+	ts := primitive.Timestamp{T: uint32(time.Now().Unix())}
+	err := ws.SaveOplogTimestamp(replset, ts)
+	assertEqual(t, nil, err)
+	tstamp := ws.GetOplogTimestamp(replset)
+	assertEqual(t, ts.T, tstamp.T)
+}
+
+func TestResetParentTask(t *testing.T) {
+	ctx := context.Background()
+	ws := &Workspace{dbName: MetaDBName, dbURI: TestReplicaURI}
+	replset := "replset"
+	ws.Reset()
+	parentID := primitive.NewObjectID()
+	parentTask := Task{ID: parentID, SetName: replset, Status: TaskSplitting}
+	tasks := []*Task{
+		&parentTask,
+		&Task{ID: primitive.NewObjectID(), SetName: replset, Status: TaskAdded, ParentID: &parentID},
+	}
+	err := ws.InsertTasks(tasks)
+	assertEqual(t, nil, err)
+
+	client, err := GetMongoClient(ws.dbURI)
+	coll := client.Database(MetaDBName).Collection(MetaTasks)
+
+	count, err := coll.CountDocuments(ctx, bson.M{"status": TaskSplitting})
+	assertEqual(t, nil, err)
+	assertEqual(t, int64(1), count)
+
+	count, err = coll.CountDocuments(ctx, bson.M{"status": TaskAdded})
+	assertEqual(t, nil, err)
+	assertEqual(t, int64(1), count)
+
+	err = ws.ResetParentTask(parentTask)
+	assertEqual(t, nil, err)
+
+	count, err = coll.CountDocuments(ctx, bson.M{"status": TaskSplitting})
+	assertEqual(t, nil, err)
+	assertEqual(t, int64(0), count)
+
+	count, err = coll.CountDocuments(ctx, bson.M{"status": TaskAdded})
+	assertEqual(t, nil, err)
+	assertEqual(t, int64(1), count)
+}
+
+func TestResetProcessingTasks(t *testing.T) {
+	ctx := context.Background()
+	ws := &Workspace{dbName: MetaDBName, dbURI: TestReplicaURI}
+	replset := "replset"
+	ws.Reset()
+	tasks := []*Task{&Task{SetName: replset, Status: TaskProcessing}}
+	err := ws.InsertTasks(tasks)
+	assertEqual(t, nil, err)
+	client, err := GetMongoClient(ws.dbURI)
+	coll := client.Database(MetaDBName).Collection(MetaTasks)
+
+	count, err := coll.CountDocuments(ctx, bson.M{"status": TaskProcessing})
+	assertEqual(t, nil, err)
+	assertEqual(t, int64(1), count)
+
+	count, err = coll.CountDocuments(ctx, bson.M{"status": TaskAdded})
+	assertEqual(t, nil, err)
+	assertEqual(t, int64(0), count)
+
+	err = ws.ResetProcessingTasks()
+	assertEqual(t, nil, err)
+
+	count, err = coll.CountDocuments(ctx, bson.M{"status": TaskProcessing})
+	assertEqual(t, nil, err)
+	assertEqual(t, int64(0), count)
+
+	count, err = coll.CountDocuments(ctx, bson.M{"status": TaskAdded})
+	assertEqual(t, nil, err)
+	assertEqual(t, int64(1), count)
 }

@@ -37,8 +37,11 @@ const (
 	CommandOplog = "oplog"
 )
 
+var fullVersion = "simagix/neutrino"
+
 // Neutrino routes to a command
 func Neutrino(version string) error {
+	fullVersion = version
 	compare := flag.String("compare", "", "deep two clusters")
 	resume := flag.String("resume", "", "resume a migration from a configuration file")
 	sim := flag.String("sim", "", "simulate data gen")
