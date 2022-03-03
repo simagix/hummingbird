@@ -29,16 +29,16 @@ func TestCleanUpWorkspace(t *testing.T) {
 	err := ws.CleanUpWorkspace()
 	assertNotEqual(t, nil, err)
 
-	os.Mkdir(DefaultStaging, 0755)
-	filenames := []string{DefaultStaging + "/file1.bson.gz", DefaultStaging + "/file2.bson.gz"}
-	ws = &Workspace{staging: DefaultStaging}
+	os.Mkdir(DefaultSpool, 0755)
+	filenames := []string{DefaultSpool + "/file1.bson.gz", DefaultSpool + "/file2.bson.gz"}
+	ws = &Workspace{spool: DefaultSpool}
 
 	for _, f := range filenames {
 		err = ioutil.WriteFile(f, []byte(f), 0644)
 		assertEqual(t, nil, err)
 		assertEqual(t, true, DoesFileExist(f))
 	}
-	ws = &Workspace{staging: DefaultStaging}
+	ws = &Workspace{spool: DefaultSpool}
 	err = ws.CleanUpWorkspace()
 	assertEqual(t, nil, err)
 
@@ -57,7 +57,7 @@ func TestReset(t *testing.T) {
 	err = ws.Reset()
 	assertNotEqual(t, nil, err)
 
-	ws = &Workspace{dbName: MetaDBName, dbURI: TestReplicaURI, staging: DefaultStaging}
+	ws = &Workspace{dbName: MetaDBName, dbURI: TestReplicaURI, spool: DefaultSpool}
 	err = ws.Reset()
 	assertEqual(t, nil, err)
 }

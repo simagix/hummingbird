@@ -4,11 +4,6 @@ As a result of "losing" my [MongoPush](https://www.simagix.com/2021/12/a-series-
 The idea of the repository name was from the movie [The Hummingbird Project (2018)](https://en.wikipedia.org/wiki/The_Hummingbird_Project).  The world can use good ideas.  Birds can't fly over the ocean, not because they lack courage, but because there is no one waiting on the other side.
 
 ## Quick Start
-### Build
-```bash
-./build.sh
-```
-
 ### Configuration File Example
 ```bash
 {
@@ -21,8 +16,48 @@ The idea of the repository name was from the movie [The Hummingbird Project (201
 ```
 
 ### Start Migration
+- Start neutrino
 ```bash
-neutrino -start configuration.json
+go run main/hummingbird.go -start configuration.json
+```
+- Add Additional Workers
+```bash
+go run main/hummingbird.go -worker configuration.json
+```
+
+### Progress Monitoring
+http://localhost:3629
+
+## Build
+```bash
+./build.sh
+```
+
+## Configurations
+```json
+{
+  "block": 10000,
+  "command": "all|config|index|data|data-only",
+  "drop": false,
+  "includes": [
+    {
+      "namespace": "database.collection",
+      "filter": {},
+      "to": "database.collection",
+      "limit": 0,
+      "masks": ["field"],
+      "method": "default|hex|partial"
+    }
+  ],
+  "license": "Apache-2.0",
+  "port": 3629,
+  "source": "mongodb://[user:XXXXXX@]host[:port][/[db][?options]]",
+  "spool": "./spool",
+  "target": "mongodb+srv://user:XXXXXX@host[/[db][?options]]",
+  "verbose": false,
+  "workers": 8,
+  "yes": false
+}
 ```
 
 ## License

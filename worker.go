@@ -8,21 +8,27 @@ import (
 
 	"github.com/simagix/gox"
 	"github.com/simagix/keyhole/mdb"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 // Worker copies data
-func Worker(id int) error {
+func Worker(id string) error {
 	inst := GetMigratorInstance()
 	var setNames []string
 	for setName := range inst.Replicas() {
 		setNames = append(setNames, setName)
 	}
-	logger := gox.GetLogger("Worker")
-	workerID := fmt.Sprintf("worker-%v", id)
-	logger.Infof(`[%v] joined`, workerID)
+	logger := gox.GetLogger()
+	workerID := fmt.Sprintf("proc %v", id)
+	status := fmt.Sprintf(`[%v] joined`, workerID)
 	ws := inst.Workspace()
+	logger.Info(status)
+	ws.Log(status)
 	index := 0
 	rev := -1
+	processed := 0
+	printer := message.NewPrinter(language.English)
 	for !inst.IsExit() {
 		rev *= -1
 		index++
@@ -64,6 +70,11 @@ func Worker(id int) error {
 		}
 		task.UpdatedBy = workerID
 		ws.UpdateTask(task)
+		processed++
+		if (processed)%100 == 1 {
+			status := printer.Sprintf("[%v] has processed %d tasks", workerID, processed)
+			logger.Info(status)
+		}
 		time.Sleep(100 * time.Millisecond)
 	}
 	logger.Infof(`[%v] exits`, workerID)

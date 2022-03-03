@@ -5,6 +5,7 @@ package hummingbird
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -106,7 +107,8 @@ func DataCopier() error {
 	}
 	ws.InsertTasks(tasks)
 	for i := 0; i < inst.Workers; i++ { // start all workers
-		go Worker(i + 1)
+		procID := fmt.Sprintf("%v.%v", os.Getpid(), i+1)
+		go Worker(procID)
 		time.Sleep(10 * time.Millisecond)
 	}
 	if err = Splitter(tasks); err != nil {

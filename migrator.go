@@ -27,10 +27,10 @@ type Migrator struct {
 	License  string   `bson:"license,omitempty"`
 	Port     int      `bson:"port,omitempty"`
 	Source   string   `bson:"source"`
+	Spool    string   `bson:"spool,omitempty"`
 	Target   string   `bson:"target"`
 	Verbose  bool     `bson:"verbose,omitempty"`
 	Workers  int      `bson:"workers,omitempty"`
-	Staging  string   `bson:"staging,omitempty"`
 	Yes      bool     `bson:"yes,omitempty"`
 
 	genesis     time.Time
@@ -61,8 +61,8 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 	}
 	inst.genesis = time.Now()
 	// establish work space
-	os.Mkdir(inst.Staging, 0755)
-	inst.workspace = Workspace{dbName: MetaDBName, dbURI: inst.Target, staging: inst.Staging}
+	os.Mkdir(inst.Spool, 0755)
+	inst.workspace = Workspace{dbName: MetaDBName, dbURI: inst.Target, spool: inst.Spool}
 	// get clusters stats
 	inst.sourceStats = mdb.NewClusterStats("")
 	client, err := GetMongoClient(inst.Source)
@@ -290,9 +290,9 @@ func ValidateMigratorConfig(migrator *Migrator) error {
 		values = append(values, fmt.Sprintf(`"port":%v`, Port))
 		migrator.Port = Port
 	}
-	if migrator.Staging == "" {
-		values = append(values, fmt.Sprintf(`"workspace":"%v"`, DefaultStaging))
-		migrator.Staging = DefaultStaging
+	if migrator.Spool == "" {
+		values = append(values, fmt.Sprintf(`"spool":"%v"`, DefaultSpool))
+		migrator.Spool = DefaultSpool
 	}
 	if migrator.Workers < 1 {
 		values = append(values, fmt.Sprintf(`"workers":%v`, NumberWorkers))

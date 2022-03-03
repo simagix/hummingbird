@@ -33,9 +33,9 @@ const (
 
 // Workspace stores meta database
 type Workspace struct {
-	dbName  string
-	dbURI   string
-	staging string
+	dbName string
+	dbURI  string
+	spool  string
 }
 
 // DropMetaDB drops meta database
@@ -52,12 +52,12 @@ func (ws *Workspace) DropMetaDB() error {
 
 // CleanUpWorkspace removes all cached file
 func (ws *Workspace) CleanUpWorkspace() error {
-	if ws.staging == "" {
-		return fmt.Errorf("workspace staging is not defined")
+	if ws.spool == "" {
+		return fmt.Errorf("spool directory is not defined")
 	}
 	var err error
 	var filenames []string
-	filepath.WalkDir(ws.staging, func(s string, d fs.DirEntry, err error) error {
+	filepath.WalkDir(ws.spool, func(s string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

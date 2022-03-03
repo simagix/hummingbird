@@ -35,7 +35,7 @@ const (
 // OplogStreamer tails oplogs
 type OplogStreamer struct {
 	SetName string
-	Staging string
+	Spool   string
 	URI     string
 
 	cached  string
@@ -69,7 +69,7 @@ func OplogStreamers() error {
 	}
 	for setName, replica := range inst.Replicas() {
 		logger.Infof("stream %v (%v)", setName, RedactedURI(replica))
-		streamer := OplogStreamer{SetName: setName, Staging: inst.Workspace().staging,
+		streamer := OplogStreamer{SetName: setName, Spool: inst.Workspace().spool,
 			URI: replica, isCache: true}
 		streamer.ts = ws.GetOplogTimestamp(setName)
 		go func() {
@@ -116,7 +116,7 @@ func (p *OplogStreamer) CacheOplogs() error {
 	status := fmt.Sprintf("%v cache oplog", p.SetName)
 	logger.Remark(status)
 	ws.Log(status)
-	os.Mkdir(p.Staging, 0755)
+	os.Mkdir(p.Spool, 0755)
 	if p.ts == nil {
 		p.ts = &primitive.Timestamp{T: uint32(time.Now().Unix())}
 		ws.SaveOplogTimestamp(p.SetName, *p.ts)
@@ -145,7 +145,7 @@ func (p *OplogStreamer) CacheOplogs() error {
 			continue
 		}
 		if len(raws)+len(cursor.Current) > CacheDataSizeLimit {
-			ofile := fmt.Sprintf(`%v/%v.%v.bson.gz`, p.Staging, p.SetName, GetDateTime())
+			ofile := fmt.Sprintf(`%v/%v.%v.bson.gz`, p.Spool, p.SetName, GetDateTime())
 			if err = gox.OutputGzipped(raws, ofile); err != nil {
 				return fmt.Errorf("OutputGzipped %v failed: %v", ofile, err)
 			}
@@ -209,8 +209,7 @@ func (p *OplogStreamer) ApplyCachedOplogs() (string, error) {
 	logger.Remark(status)
 	ws.Log(status)
 	filenames := []string{}
-	filepath.WalkDir(inst.Workspace().staging, func(s string, d fs.DirEntry, err error) error {
-		// filepath.WalkDir(ws.staging, func(s string, d fs.DirEntry, err error) error {
+	filepath.WalkDir(inst.Workspace().spool, func(s string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

@@ -5,13 +5,14 @@ package hummingbird
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/simagix/gox"
 )
 
 const (
-	// DefaultStaging defines default work space
-	DefaultStaging = "./workspace"
+	// DefaultSpool defines default work space
+	DefaultSpool = "./spool"
 	// MaxBlockSize defines max batch size of a task
 	MaxBlockSize = 10000
 	// MaxNumberWorkers defines max number of concurrent workers
@@ -47,6 +48,7 @@ func Neutrino(version string) error {
 	sim := flag.String("sim", "", "simulate data gen")
 	start := flag.String("start", "", "start a migration from a configuration file")
 	ver := flag.Bool("version", false, "print version info")
+	worker := flag.String("worker", "", "start a neutrino worker")
 
 	flag.Parse()
 	flagset := make(map[string]bool)
@@ -65,6 +67,12 @@ func Neutrino(version string) error {
 		return Simulate(*sim)
 	} else if *start != "" {
 		return Start(*start)
+	} else if *worker != "" {
+		_, err := NewMigratorInstance(*worker)
+		if err != nil {
+			return fmt.Errorf("NewMigratorInstance failed: %v", err)
+		}
+		return Worker(fmt.Sprintf("%v.1", os.Getpid()))
 	}
 	logger.Info(version)
 	return nil

@@ -24,7 +24,7 @@ func TestCacheOplogs(t *testing.T) {
 	ws.CleanUpWorkspace()
 	ctx := context.Background()
 	replset := "replset"
-	streamer := OplogStreamer{SetName: replset, Staging: "./workspace",
+	streamer := OplogStreamer{SetName: replset, Spool: "./spool",
 		URI: TestReplicaURI, isCache: true}
 	go func() {
 		err := streamer.CacheOplogs()
