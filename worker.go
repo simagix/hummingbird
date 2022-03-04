@@ -29,17 +29,23 @@ func Worker(id string) error {
 	rev := -1
 	processed := 0
 	printer := message.NewPrinter(language.English)
+	btime := time.Now()
 	for !inst.IsExit() {
 		rev *= -1
 		index++
 		index := index % len(setNames)
+		if time.Since(btime) > 10*time.Minute {
+			status := printer.Sprintf("[%v] has processed %d tasks", workerID, processed)
+			logger.Info(status)
+			btime = time.Now()
+		}
 		task, err := ws.FindNextTaskAndUpdate(setNames[index], workerID, rev)
 		if err != nil {
 			if task != nil {
 				task.Status = TaskAdded
 				ws.UpdateTask(task)
 			}
-			time.Sleep(1 * time.Second)
+			time.Sleep(10 * time.Second)
 			continue
 		}
 		dbName, collName := mdb.SplitNamespace(task.Namespace)

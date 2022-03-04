@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/simagix/gox"
 )
@@ -68,11 +69,19 @@ func Neutrino(version string) error {
 	} else if *start != "" {
 		return Start(*start)
 	} else if *worker != "" {
-		_, err := NewMigratorInstance(*worker)
+		inst, err := NewMigratorInstance(*worker)
 		if err != nil {
 			return fmt.Errorf("NewMigratorInstance failed: %v", err)
 		}
-		return Worker(fmt.Sprintf("%v.1", os.Getpid()))
+		wg := gox.NewWaitGroup(inst.Workers)
+		for i := 0; i < inst.Workers; i++ { // start all workers
+			procID := fmt.Sprintf("%v.%v", os.Getpid(), i+1)
+			wg.Add(1)
+			go Worker(procID)
+			time.Sleep(10 * time.Millisecond)
+		}
+		wg.Wait()
+		return nil
 	}
 	logger.Info(version)
 	return nil
