@@ -6,6 +6,7 @@ require (
 	github.com/simagix/gox v0.2.4-0.20220226131255-b9dcc7e8afc1
 	github.com/simagix/keyhole v1.2.2-0.20220225131322-676854097886
 	go.mongodb.org/mongo-driver v1.8.3
+	golang.org/x/text v0.3.7
 )
 
 require (
@@ -21,5 +22,4 @@ require (
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
 	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
-	golang.org/x/text v0.3.7 // indirect
 )

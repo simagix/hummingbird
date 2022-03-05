@@ -33,6 +33,11 @@ http://localhost:3629
 ./build.sh
 ```
 
+## Download
+```bash
+./scripts/download-from-docker.sh
+```
+
 ## Configurations
 ```json
 {
