@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neutrino
+spec:
+  selector:
+    matchLabels:
+      app: neutrino
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: neutrino
+    spec:
+      hostNetwork: true
+      containers:
+      - name: neutrino
+        image: simagix/neutrino:latest
+        ports:
+        - containerPort: 3629
+        volumeMounts:
+        - name: ws
+          mountPath: /ws
+        command: ["/dist/neutrino-linux-x64"]
+        args: ["-start", "/ws/quickstart.json"]
+      volumes:
+      - name: ws
+        hostPath:
+          path: /private/tmp

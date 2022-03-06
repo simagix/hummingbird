@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  selector:
+    matchLabels:
+      app: worker
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      volumes:
+      - name: ws
+        hostPath:
+          path: /private/tmp
+      containers:
+      - name: worker
+        image: simagix/neutrino:latest      
+        volumeMounts:
+        - name: ws
+          mountPath: /ws
+        command: ["/dist/neutrino-linux-x64"]
+        args: ["-worker", "/ws/quickstart.json"]
