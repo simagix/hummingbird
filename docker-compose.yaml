@@ -1,0 +1,19 @@
+version: "3"
+
+services:
+  neutrino:
+    image: simagix/neutrino:latest
+    command: /dist/neutrino-linux-x64 -start /ws/quickstart.json
+    ports:
+      - "3629:3629"
+    volumes:
+      - ${PWD}/testdata:/ws/
+  worker:
+    image: simagix/neutrino:latest
+    command: /dist/neutrino-linux-x64 -worker /ws/quickstart.json
+    volumes:
+      - ${PWD}/testdata:/ws/
+networks:
+  host: # note: use $(hostname -f) not localhost in neutrino config
+    name: host
+    external: true

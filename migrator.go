@@ -66,11 +66,16 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 	// get clusters stats
 	inst.sourceStats = mdb.NewClusterStats("")
 	client, err := GetMongoClient(inst.Source)
+	if err != nil {
+		return migratorInstance, fmt.Errorf("source GetMongoClient failed: %v", err)
+	}
 	if err = inst.SourceStats().GetClusterStatsSummary(client); err != nil {
 		return migratorInstance, err
 	}
 	inst.targetStats = mdb.NewClusterStats("")
-	client, err = GetMongoClient(inst.Target)
+	if client, err = GetMongoClient(inst.Target); err != nil {
+		return migratorInstance, fmt.Errorf("target GetMongoClient failed: %v", err)
+	}
 	if err = inst.TargetStats().GetClusterStatsSummary(client); err != nil {
 		return migratorInstance, err
 	}

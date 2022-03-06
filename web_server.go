@@ -82,6 +82,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		completions = append(completions, [2]interface{}{"Processing", counts.Processing})
 		completions = append(completions, [2]interface{}{"Splitting", counts.Splitting})
 		chart := Chart{Title: eta, Completions: completions}
+	    w.Header().Set("Content-Type", "text/html")
 		templ.Execute(w, chart)
 	}
 }
