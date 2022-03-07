@@ -1,11 +1,12 @@
 {
   "namespaces": ["testdb.hummingbird", "testdb.neutrino"],
+  "oplogs_per_second": 600,
   "seconds_to_run": 300,
-  "tps": 600,
   "threads": {
     "find": 1,
     "insert": 2,
     "write": 1
   },
-  "uri": "mongodb://user:password@localhost/?compressors=zstd&readPreference=secondaryPreferred"
+  "uri": "mongodb://user:password@localhost/?compressors=zstd&readPreference=secondaryPreferred",
+  "verbose": true
 }

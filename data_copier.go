@@ -168,7 +168,7 @@ func Wait() error {
 			return fmt.Errorf(`ResetLongRunningTasks failed: %v`, err)
 		}
 		unit := time.Minute
-		if counts.Added < 20 {
+		if counts.Added < 100 {
 			unit = 10 * time.Second
 		}
 		time.Sleep(unit)

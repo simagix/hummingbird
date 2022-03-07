@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simulator
+spec:
+  selector:
+    matchLabels:
+      app: simulator
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: simulator
+    spec:
+      volumes:
+      - name: ws
+        hostPath:
+          path: /private/tmp
+      containers:
+      - name: simulator
+        image: simagix/neutrino:latest      
+        volumeMounts:
+        - name: ws
+          mountPath: /ws
+        command: ["/dist/neutrino-linux-x64"]
+        args: ["-sim", "/ws/simulation.json"]

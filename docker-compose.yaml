@@ -8,9 +8,15 @@ services:
       - "3629:3629"
     volumes:
       - ${PWD}/testdata:/ws/
+      - ${PWD}/spool:/spool
   worker:
     image: simagix/neutrino:latest
     command: /dist/neutrino-linux-x64 -worker /ws/quickstart.json
+    volumes:
+      - ${PWD}/testdata:/ws/
+  sim:
+    image: simagix/neutrino:latest
+    command: /dist/neutrino-linux-x64 -sim /ws/simulation.json
     volumes:
       - ${PWD}/testdata:/ws/
 networks:

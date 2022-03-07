@@ -21,9 +21,14 @@ spec:
         volumeMounts:
         - name: ws
           mountPath: /ws
+        - name: spool
+          mountPath: /spool
         command: ["/dist/neutrino-linux-x64"]
         args: ["-start", "/ws/quickstart.json"]
       volumes:
       - name: ws
         hostPath:
           path: /private/tmp
+      - name: spool
+        hostPath:
+          path: /private/tmp/spool
