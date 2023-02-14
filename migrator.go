@@ -92,7 +92,7 @@ func NewMigratorInstance(filename string) (*Migrator, error) {
 	}
 	for _, replica := range list {
 		cs, err := mdb.ParseURI(replica)
-		if err != nil || cs.ReplicaSet == "" {
+		if err != nil {
 			return nil, fmt.Errorf("ParseURI failed: %v", err)
 		}
 		inst.Replicas()[cs.ReplicaSet] = replica
