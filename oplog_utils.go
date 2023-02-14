@@ -5,6 +5,7 @@ package hummingbird
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -244,25 +245,37 @@ func GetWriteModels(oplog Oplog) []OplogWriteModel {
 	case "n":
 		return nil
 	case "u":
-		var isUpdate bool
 		o := oplog.Object
 		for _, v := range oplog.Object {
-			if v.Key != "$v" && strings.HasPrefix(v.Key, "$") {
-				isUpdate = true
+			if v.Key == "diff" {
+				for _, doc := range v.Value.(bson.D) {
+					if doc.Key == "u" || doc.Key == "i" {
+						op := mongo.NewUpdateOneModel()
+						op.SetFilter(oplog.Query)
+						op.SetUpdate(bson.D{{"$set", doc.Value}})
+						return []OplogWriteModel{{ns, oplog.Operation, op}}
+					} else if doc.Key == "d" {
+						op := mongo.NewUpdateOneModel()
+						op.SetFilter(oplog.Query)
+						op.SetUpdate(bson.D{{"$unset", doc.Value}})
+						return []OplogWriteModel{{ns, oplog.Operation, op}}
+					}
+				}
+				return []OplogWriteModel{}
+			} else if v.Key != "$v" && strings.HasPrefix(v.Key, "$") {
 				o = bson.D{{v.Key, v.Value}}
-				break
+				op := mongo.NewUpdateOneModel()
+				op.SetFilter(oplog.Query)
+				op.SetUpdate(o)
+				return []OplogWriteModel{{ns, oplog.Operation, op}}
 			}
-		}
-		if isUpdate {
-			op := mongo.NewUpdateOneModel()
-			op.SetFilter(oplog.Query)
-			op.SetUpdate(o)
-			return []OplogWriteModel{OplogWriteModel{ns, oplog.Operation, op}}
 		}
 		op := mongo.NewReplaceOneModel()
 		op.SetFilter(oplog.Query)
 		op.SetReplacement(o)
-		return []OplogWriteModel{OplogWriteModel{ns, oplog.Operation, op}}
+		return []OplogWriteModel{{ns, oplog.Operation, op}}
+	default:
+		log.Println("unrecognized op", oplog.Operation)
 	}
 	return nil
 }
