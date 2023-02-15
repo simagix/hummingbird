@@ -82,3 +82,41 @@ func TestBulkWriteOplogs(t *testing.T) {
 	_, err = BulkWriteOplogs(oplogs)
 	assertEqual(t, nil, err)
 }
+
+func TestBulkWriteOplogsV4(t *testing.T) {
+	_, err := NewMigratorInstance("testdata/config.json")
+	assertEqual(t, nil, err)
+	docs := []string{`{ "op" : "u", "ns" : "testdb.neutrino", "ui" : "", "o" : { "$v" : 2, "$set" :{ "color" : "Red" } }, "o2" : { "_id" : 101 }, "t" : 1, "v" : 2 }`,
+		`{ "op" : "u", "ns" : "testdb.neutrino", "ui" : "", "o" : { "_id": 101, "color" : "Red" }, "o2" : { "_id" : 101 }, "t" : 1, "v" : 2 }`}
+	oplogs := []Oplog{}
+
+	for _, doc := range docs {
+		var oplog Oplog
+		err = bson.UnmarshalExtJSON([]byte(doc), false, &oplog)
+		assertEqual(t, nil, err)
+		oplogs = append(oplogs, oplog)
+	}
+	assertEqual(t, 2, len(oplogs))
+	gox.GetLogger().SetLoggerLevel(gox.Debug)
+	_, err = BulkWriteOplogs(oplogs)
+	assertEqual(t, nil, err)
+}
+
+func TestBulkWriteOplogsV5(t *testing.T) {
+	_, err := NewMigratorInstance("testdata/config.json")
+	assertEqual(t, nil, err)
+	docs := []string{`{ "op" : "u", "ns" : "testdb.neutrino", "ui" : "", "o" : { "$v" : 2, "diff" : { "u" : { "color" : "Red" } } }, "o2" : { "_id" : 101 }, "t" : 1, "v" : 2 }`,
+		`{ "op" : "u", "ns" : "testdb.neutrino", "ui" : "", "o" : { "_id": 101, "color" : "Red" }, "o2" : { "_id" : 101 }, "t" : 1, "v" : 2 }`}
+	oplogs := []Oplog{}
+
+	for _, doc := range docs {
+		var oplog Oplog
+		err = bson.UnmarshalExtJSON([]byte(doc), false, &oplog)
+		assertEqual(t, nil, err)
+		oplogs = append(oplogs, oplog)
+	}
+	assertEqual(t, 2, len(oplogs))
+	gox.GetLogger().SetLoggerLevel(gox.Debug)
+	_, err = BulkWriteOplogs(oplogs)
+	assertEqual(t, nil, err)
+}
